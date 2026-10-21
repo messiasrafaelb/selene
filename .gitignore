@@ -1,10 +1,32 @@
 HELP.md
-target/
-.mvn/wrapper/maven-wrapper.jar
+**/target/
+**/.mvn/wrapper/maven-wrapper.jar
 !**/src/main/**/target/
 !**/src/test/**/target/
 
-### STS ###
+### Node / Expo / React Native ###
+**/node_modules/
+**/.expo/
+**/android/
+**/ios/
+**/dist/
+**/web-build/
+npm-debug.*
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+*.orig.*
+
+### Python / Data Science ###
+__pycache__/
+*.py[cod]
+.ipynb_checkpoints/
+.venv/
+venv/
+
+### STS / Eclipse ###
 .apt_generated
 .classpath
 .factorypath
@@ -25,9 +47,9 @@ target/
 /dist/
 /nbdist/
 /.nb-gradle/
-build/
-!**/src/main/**/build/
-!**/src/test/**/build/
+**/build/
+!**/src/main/**/target/
+!**/src/test/**/target/
 
 ### VS Code ###
 .vscode/
