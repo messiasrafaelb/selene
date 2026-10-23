@@ -169,6 +169,64 @@ export function findUserById(id = 1) {
   return users.find((user) => user.id === id);
 }
 
+export function registerUser({ name = "", email = "", password = "", pin = "" }) {
+  const trimmedName = name.trim();
+  const trimmedEmail = email.trim().toLowerCase();
+  const cleanPin = pin.replace(/\D/g, "");
+
+  if (!trimmedName || !trimmedEmail || !password || cleanPin.length !== 4) {
+    return {
+      success: false,
+      message: "Preencha todos os campos e informe um PIN de 4 dígitos.",
+    };
+  }
+
+  const emailExists = users.some((u) => u.email.toLowerCase() === trimmedEmail);
+  if (emailExists) {
+    return {
+      success: false,
+      message: "Já existe uma conta cadastrada com este e-mail.",
+    };
+  }
+
+  const newUser = {
+    id: users.length + 1,
+    name: trimmedName,
+    email: trimmedEmail,
+    password,
+    pin: cleanPin,
+  };
+
+  users.push(newUser);
+  return { success: true, user: newUser };
+}
+
+export function resetPasswordWithPin({ email = "", pin = "", newPassword = "" }) {
+  const trimmedEmail = email.trim().toLowerCase();
+  const cleanPin = pin.replace(/\D/g, "");
+
+  if (!trimmedEmail || cleanPin.length !== 4 || !newPassword) {
+    return {
+      success: false,
+      message: "Informe o e-mail, o PIN de 4 dígitos e a nova senha.",
+    };
+  }
+
+  const user = users.find(
+    (u) => u.email.toLowerCase() === trimmedEmail && u.pin === cleanPin
+  );
+
+  if (!user) {
+    return {
+      success: false,
+      message: "E-mail ou PIN de segurança inválidos.",
+    };
+  }
+
+  user.password = newPassword;
+  return { success: true };
+}
+
 export function findCyclesByUserId(id = 1) {
   applyAutoCloseRule(id);
   return cycles.filter((cycle) => cycle.userId === id);
