@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import {
   SafeAreaView,
   View,
@@ -12,6 +12,7 @@ import {
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {
   findUserById,
+  findCyclesByUserId,
   findCycleSummaryByUserId,
   closeCurrentCycle,
 } from "../../data/mockData";
@@ -26,8 +27,49 @@ const WEEK_DAYS = [
   { id: "7", label: "D", day: "25", active: false, period: false },
 ];
 
+const CALENDAR_HEADERS = ["D", "S", "T", "Q", "Q", "S", "S"];
+
+const MONTH_NAMES = [
+  "Janeiro",
+  "Fevereiro",
+  "Março",
+  "Abril",
+  "Maio",
+  "Junho",
+  "Julho",
+  "Agosto",
+  "Setembro",
+  "Outubro",
+  "Novembro",
+  "Dezembro",
+];
+
+function parseDayMonthYear(dateStr) {
+  if (!dateStr) return null;
+  const parts = dateStr.split("/");
+  if (parts.length !== 3) return null;
+  return new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
+}
+
+function isDateInCycle(year, monthIndex, dayNumber, userCycles) {
+  const target = new Date(year, monthIndex, dayNumber);
+
+  return userCycles.some((cycle) => {
+    const start = parseDayMonthYear(cycle.startDate);
+    const end = cycle.endDate
+      ? parseDayMonthYear(cycle.endDate)
+      : new Date(2026, 9, 24);
+
+    if (!start || !end) return false;
+    return target >= start && target <= end;
+  });
+}
+
 export default function CycleHomeScreen({ navigation, onEnterEmergency, onLogout }) {
   const [pinModalVisible, setPinModalVisible] = useState(false);
+  const [calendarModalVisible, setCalendarModalVisible] = useState(false);
+  const [calendarYear, setCalendarYear] = useState(2026);
+  const [calendarMonth, setCalendarMonth] = useState(9);
   const [pinInput, setPinInput] = useState("");
   const [, setRefreshTick] = useState(0);
 
@@ -40,8 +82,32 @@ export default function CycleHomeScreen({ navigation, onEnterEmergency, onLogout
   }, [navigation]);
 
   const user = findUserById(1);
+  const userCycles = findCyclesByUserId(1);
   const summary = findCycleSummaryByUserId(1);
   const hasOpenCycle = Boolean(summary.openCycle);
+
+  const firstWeekdayOfMonth = new Date(calendarYear, calendarMonth, 1).getDay();
+  const totalDaysInMonth = new Date(calendarYear, calendarMonth + 1, 0).getDate();
+  const emptySlots = Array.from({ length: firstWeekdayOfMonth }, (_, i) => i);
+  const monthDays = Array.from({ length: totalDaysInMonth }, (_, i) => i + 1);
+
+  function handlePrevMonth() {
+    if (calendarMonth === 0) {
+      setCalendarMonth(11);
+      setCalendarYear((prev) => prev - 1);
+    } else {
+      setCalendarMonth((prev) => prev - 1);
+    }
+  }
+
+  function handleNextMonth() {
+    if (calendarMonth === 11) {
+      setCalendarMonth(0);
+      setCalendarYear((prev) => prev + 1);
+    } else {
+      setCalendarMonth((prev) => prev + 1);
+    }
+  }
 
   function handleConfirmPin() {
     setPinModalVisible(false);
@@ -63,10 +129,14 @@ export default function CycleHomeScreen({ navigation, onEnterEmergency, onLogout
           <Text style={styles.greeting}>Olá, {user.name}</Text>
 
           <View style={styles.topActions}>
-            <View style={styles.monthRow}>
+            <TouchableOpacity
+              style={styles.monthRow}
+              onPress={() => setCalendarModalVisible(true)}
+              activeOpacity={0.8}
+            >
               <Ionicons name="calendar-outline" size={18} color="#EC5F7B" />
-              <Text style={styles.monthText}>Outubro</Text>
-            </View>
+              <Text style={styles.monthText}>{MONTH_NAMES[calendarMonth]}</Text>
+            </TouchableOpacity>
 
             <TouchableOpacity
               style={styles.logoutButton}
@@ -173,6 +243,103 @@ export default function CycleHomeScreen({ navigation, onEnterEmergency, onLogout
       >
         <Ionicons name="moon" size={24} color="#FFFFFF" />
       </TouchableOpacity>
+
+      <Modal
+        visible={calendarModalVisible}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setCalendarModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.calendarSheet}>
+            <View style={styles.sheetHandle} />
+
+            <View style={styles.calendarNavRow}>
+              <TouchableOpacity
+                style={styles.monthNavButton}
+                onPress={handlePrevMonth}
+                activeOpacity={0.75}
+              >
+                <Ionicons name="chevron-back" size={20} color="#EC5F7B" />
+              </TouchableOpacity>
+
+              <View style={styles.calendarTitleRow}>
+                <Ionicons name="calendar" size={18} color="#EC5F7B" />
+                <Text style={styles.calendarTitle}>
+                  {MONTH_NAMES[calendarMonth]} {calendarYear}
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.monthNavButton}
+                onPress={handleNextMonth}
+                activeOpacity={0.75}
+              >
+                <Ionicons name="chevron-forward" size={20} color="#EC5F7B" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.calendarWeekRow}>
+              {CALENDAR_HEADERS.map((letter, idx) => (
+                <Text key={idx} style={styles.calendarWeekLetter}>
+                  {letter}
+                </Text>
+              ))}
+            </View>
+
+            <View style={styles.calendarGrid}>
+              {emptySlots.map((slot) => (
+                <View key={`empty-${slot}`} style={styles.calendarCell} />
+              ))}
+
+              {monthDays.map((day) => {
+                const inCycle = isDateInCycle(calendarYear, calendarMonth, day, userCycles);
+                const isToday = calendarYear === 2026 && calendarMonth === 9 && day === 22;
+
+                return (
+                  <View key={day} style={styles.calendarCell}>
+                    <View
+                      style={[
+                        styles.calendarDayCircle,
+                        inCycle ? styles.calendarDayCycle : styles.calendarDayNeutral,
+                        isToday && styles.calendarDayToday,
+                      ]}
+                    >
+                      <Text
+                        style={[
+                          styles.calendarDayText,
+                          inCycle && styles.calendarDayTextCycle,
+                        ]}
+                      >
+                        {day}
+                      </Text>
+                    </View>
+                  </View>
+                );
+              })}
+            </View>
+
+            <View style={styles.legendRow}>
+              <View style={styles.legendItem}>
+                <View style={styles.legendDotCycle} />
+                <Text style={styles.legendLabel}>Dias de ciclo</Text>
+              </View>
+              <View style={styles.legendItem}>
+                <View style={styles.legendDotNeutral} />
+                <Text style={styles.legendLabel}>Fase regular</Text>
+              </View>
+            </View>
+
+            <TouchableOpacity
+              style={styles.closeCalendarButton}
+              onPress={() => setCalendarModalVisible(false)}
+              activeOpacity={0.85}
+            >
+              <Text style={styles.closeCalendarText}>Fechar Calendário</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
 
       <Modal
         visible={pinModalVisible}
@@ -408,38 +575,6 @@ const styles = StyleSheet.create({
     color: "#8E5B6B",
     marginTop: 4,
   },
-  statusCardCoral: {
-    width: "48%",
-    backgroundColor: "#EC5F7B",
-    borderRadius: 22,
-    padding: 16,
-    justifyContent: "space-between",
-    minHeight: 130,
-  },
-  iconCircleWhite: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: "#FFFFFF",
-    alignItems: "center",
-    justifyContent: "center",
-    marginRight: 8,
-  },
-  cardTagCoral: {
-    fontSize: 12,
-    fontWeight: "bold",
-    color: "#FFEBF0",
-  },
-  coralMainValue: {
-    fontSize: 18,
-    fontWeight: "bold",
-    color: "#FFFFFF",
-  },
-  coralSubLabel: {
-    fontSize: 12,
-    color: "#FFEBF0",
-    marginTop: 4,
-  },
   secretLogoButton: {
     position: "absolute",
     right: 22,
@@ -460,6 +595,134 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: "rgba(74, 29, 44, 0.45)",
     justifyContent: "flex-end",
+  },
+  calendarSheet: {
+    backgroundColor: "#FFFFFF",
+    borderTopLeftRadius: 28,
+    borderTopRightRadius: 28,
+    padding: 22,
+    alignItems: "center",
+  },
+  calendarNavRow: {
+    flexDirection: "row",
+    width: "100%",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 16,
+  },
+  monthNavButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: "#FFF0F4",
+    borderWidth: 1,
+    borderColor: "#FAD2DC",
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  calendarTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  calendarTitle: {
+    fontSize: 18,
+    fontWeight: "bold",
+    color: "#4A1D2C",
+    marginLeft: 8,
+  },
+  calendarWeekRow: {
+    flexDirection: "row",
+    width: "100%",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  calendarWeekLetter: {
+    width: "14.28%",
+    textAlign: "center",
+    fontSize: 12,
+    fontWeight: "bold",
+    color: "#8E5B6B",
+  },
+  calendarGrid: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    width: "100%",
+  },
+  calendarCell: {
+    width: "14.28%",
+    alignItems: "center",
+    marginVertical: 4,
+  },
+  calendarDayCircle: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  calendarDayNeutral: {
+    backgroundColor: "#FFF5F7",
+  },
+  calendarDayCycle: {
+    backgroundColor: "#EC5F7B",
+  },
+  calendarDayToday: {
+    borderWidth: 2,
+    borderColor: "#4A1D2C",
+  },
+  calendarDayText: {
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#4A1D2C",
+  },
+  calendarDayTextCycle: {
+    color: "#FFFFFF",
+    fontWeight: "bold",
+  },
+  legendRow: {
+    flexDirection: "row",
+    justifyContent: "center",
+    width: "100%",
+    marginTop: 14,
+    marginBottom: 18,
+  },
+  legendItem: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginHorizontal: 14,
+  },
+  legendDotCycle: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: "#EC5F7B",
+    marginRight: 6,
+  },
+  legendDotNeutral: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: "#FFF5F7",
+    borderWidth: 1,
+    borderColor: "#FAD2DC",
+    marginRight: 6,
+  },
+  legendLabel: {
+    fontSize: 12,
+    color: "#8E5B6B",
+    fontWeight: "500",
+  },
+  closeCalendarButton: {
+    width: "100%",
+    backgroundColor: "#EC5F7B",
+    paddingVertical: 14,
+    borderRadius: 22,
+    alignItems: "center",
+  },
+  closeCalendarText: {
+    color: "#FFFFFF",
+    fontWeight: "bold",
+    fontSize: 14,
   },
   bottomSheet: {
     backgroundColor: "#FFFFFF",
