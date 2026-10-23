@@ -1,3 +1,4 @@
+import React from "react";
 import {
   SafeAreaView,
   View,
@@ -8,7 +9,7 @@ import {
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 
-export default function LoginScreen({ onLogin }) {
+export default function LoginScreen({ navigation, onLogin }) {
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -16,7 +17,7 @@ export default function LoginScreen({ onLogin }) {
           <Ionicons name="moon" size={34} color="#FFFFFF" />
         </View>
         <Text style={styles.title}>Selene</Text>
-        <Text style={styles.subtitle}>Seu calendário de ciclos e bem-estar</Text>
+        <Text style={styles.subtitle}>Seu calendário menstrual e bem-estar</Text>
       </View>
 
       <View style={styles.card}>
@@ -24,7 +25,7 @@ export default function LoginScreen({ onLogin }) {
           <Text style={styles.label}>E-mail</Text>
           <TextInput
             style={styles.input}
-            placeholder="selene@gmail.com"
+            placeholder="selena@gmail.com"
             placeholderTextColor="#B08A95"
             keyboardType="email-address"
             autoCapitalize="none"
@@ -32,7 +33,15 @@ export default function LoginScreen({ onLogin }) {
         </View>
 
         <View style={styles.field}>
-          <Text style={styles.label}>Senha</Text>
+          <View style={styles.passwordLabelRow}>
+            <Text style={styles.label}>Senha</Text>
+            <TouchableOpacity
+              onPress={() => navigation?.navigate("ForgotPassword")}
+              activeOpacity={0.75}
+            >
+              <Text style={styles.forgotLinkText}>Esqueci minha senha</Text>
+            </TouchableOpacity>
+          </View>
           <TextInput
             style={styles.input}
             placeholder="••••••••"
@@ -43,6 +52,14 @@ export default function LoginScreen({ onLogin }) {
 
         <TouchableOpacity style={styles.loginButton} onPress={onLogin} activeOpacity={0.85}>
           <Text style={styles.loginButtonText}>Entrar</Text>
+        </TouchableOpacity>
+
+        <TouchableOpacity
+          style={styles.registerButton}
+          onPress={() => navigation?.navigate("Register")}
+          activeOpacity={0.8}
+        >
+          <Text style={styles.registerButtonText}>Não tem uma conta? Criar Conta</Text>
         </TouchableOpacity>
       </View>
 
@@ -96,11 +113,22 @@ const styles = StyleSheet.create({
   field: {
     marginBottom: 18,
   },
+  passwordLabelRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    marginBottom: 6,
+  },
   label: {
     fontSize: 13,
     fontWeight: "600",
     color: "#4A1D2C",
     marginBottom: 6,
+  },
+  forgotLinkText: {
+    fontSize: 12,
+    fontWeight: "bold",
+    color: "#EC5F7B",
   },
   input: {
     backgroundColor: "#FFF8FA",
@@ -122,6 +150,16 @@ const styles = StyleSheet.create({
   loginButtonText: {
     color: "#FFFFFF",
     fontSize: 16,
+    fontWeight: "bold",
+  },
+  registerButton: {
+    marginTop: 16,
+    alignItems: "center",
+    paddingVertical: 6,
+  },
+  registerButtonText: {
+    color: "#EC5F7B",
+    fontSize: 14,
     fontWeight: "bold",
   },
   footer: {
