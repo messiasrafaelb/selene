@@ -1,3 +1,4 @@
+import { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
@@ -10,19 +11,138 @@ import {
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {
   emergencyChannels,
-  findContactsByUserId,
+  listar,
+  atualizar,
+  remover,
+  buscarPainel,
+  avaliarRiscoApi,
   formatPhone,
-} from "../../data/mockData";
+  AVISO_ACADEMICO,
+} from "../../services/api";
 
-export default function EmergencyScreen({ navigation, onExitEmergency }) {
-  const userContacts = findContactsByUserId(1);
+const INTERVALO_ATUALIZACAO_MS = 15000;
+const PRIORIDADES = ["Principal", "Apoio rápido", "Orientação"];
+
+const COR_RISCO = {
+  Baixo: "#1F8A5C",
+  Médio: "#C9A227",
+  Alto: "#C0392B",
+};
+
+const PERFIS_SIMULACAO = [
+  {
+    rotulo: "Baixo (10%)",
+    vinculoAutor: "Conhecido",
+    tipoViolencia: "Moral",
+    localOcorrencia: "Ambiente virtual",
+    diasAteNotificacao: 3,
+  },
+  {
+    rotulo: "Médio (49%)",
+    vinculoAutor: "Ex-parceiro",
+    tipoViolencia: "Psicológica",
+    localOcorrencia: "Residência",
+    diasAteNotificacao: 15,
+  },
+  {
+    rotulo: "Alto (85%)",
+    vinculoAutor: "Parceiro atual",
+    tipoViolencia: "Física",
+    localOcorrencia: "Residência",
+    diasAteNotificacao: 38,
+  },
+];
+
+export default function EmergencyScreen({
+  navigation,
+  currentUser,
+  onExitEmergency,
+}) {
+  const userId = currentUser?.id || 1;
+  const [userContacts, setUserContacts] = useState([]);
+  const [painel, setPainel] = useState(null);
+  const [warningMessage, setWarningMessage] = useState("");
+
+  const carregarRede = useCallback(async () => {
+    try {
+      setWarningMessage("");
+      const [contatosApi, painelApi] = await Promise.all([
+        listar("contacts", userId),
+        buscarPainel(userId),
+      ]);
+      setUserContacts(Array.isArray(contatosApi) ? contatosApi : []);
+      setPainel(painelApi || null);
+    } catch (erro) {
+      setWarningMessage("Falha ao sincronizar com a API (http://localhost:3333).");
+    }
+  }, [userId]);
+
+  useEffect(() => {
+    carregarRede();
+    const idIntervalo = setInterval(carregarRede, INTERVALO_ATUALIZACAO_MS);
+    let unsubscribe = null;
+    if (navigation?.addListener) {
+      unsubscribe = navigation.addListener("focus", () => {
+        carregarRede();
+      });
+    }
+    return () => {
+      clearInterval(idIntervalo);
+      if (unsubscribe) unsubscribe();
+    };
+  }, [navigation, carregarRede]);
 
   function handleCallNumber(phone, label) {
     const cleanPhone = String(phone).replace(/\D/g, "");
     Linking.openURL(`tel:${cleanPhone}`).catch(() => {
-      Alert.alert("Ligação de Emergência", `Discando para ${label}: ${formatPhone(phone) || phone}`);
+      Alert.alert(
+        "Ligação de Emergência",
+        `Discando para ${label}: ${formatPhone(phone) || phone}`
+      );
     });
   }
+
+  async function handleAlternarPrioridade(item) {
+    try {
+      const idxAtual = PRIORIDADES.indexOf(item.priority || "Apoio rápido");
+      const novaPrioridade = PRIORIDADES[(idxAtual + 1) % PRIORIDADES.length];
+      await atualizar("contacts", item.id, { priority: novaPrioridade });
+      await carregarRede();
+    } catch (erro) {
+      setWarningMessage(erro.message || "Falha ao atualizar prioridade do contato.");
+    }
+  }
+
+  async function handleRemoverContato(id) {
+    try {
+      await remover("contacts", id);
+      await carregarRede();
+    } catch (erro) {
+      setWarningMessage(erro.message || "Falha ao remover contato na API.");
+    }
+  }
+
+  async function handleSimularRisco(perfil) {
+    try {
+      await avaliarRiscoApi({
+        cycleId: painel?.indicadorRecente?.cycleId || 1,
+        ...perfil,
+      });
+      await carregarRede();
+    } catch (erro) {
+      setWarningMessage(erro.message || "Falha ao recalcular indicador na API.");
+    }
+  }
+
+  const indicador = painel?.indicadorRecente || {
+    riscoRepeticao: "Alto",
+    probabilidadeRisco: 0.85,
+    vinculoAutor: "Parceiro atual",
+    tipoViolencia: "Física",
+    localOcorrencia: "Residência",
+    diasAteNotificacao: 38,
+  };
+  const corIndicador = COR_RISCO[indicador.riscoRepeticao] || COR_RISCO.Baixo;
 
   return (
     <View style={styles.container}>
@@ -45,8 +165,55 @@ export default function EmergencyScreen({ navigation, onExitEmergency }) {
                 activeOpacity={0.85}
               >
                 <Ionicons name="exit-outline" size={18} color="#EC5F7B" />
-                <Text style={styles.quickExitText}>Sair</Text>
+                <Text style={styles.quickExitText}>Saída Rápida</Text>
               </TouchableOpacity>
+            </View>
+
+            {Boolean(warningMessage) && (
+              <View style={styles.warningBanner}>
+                <Ionicons name="warning" size={18} color="#B26A00" />
+                <Text style={styles.warningText}>{warningMessage}</Text>
+              </View>
+            )}
+
+            <View style={styles.dsCard}>
+              <View style={styles.dsHeaderRow}>
+                <View style={styles.dsTitleRow}>
+                  <Ionicons name="analytics" size={18} color="#EC5F7B" />
+                  <Text style={styles.dsTitle}>
+                    Indicador de Risco de Repetição (Data Science)
+                  </Text>
+                </View>
+                <View style={[styles.dsBadge, { backgroundColor: corIndicador }]}>
+                  <Text style={styles.dsBadgeText}>
+                    Risco {indicador.riscoRepeticao} (
+                    {Math.round(Number(indicador.probabilidadeRisco || 0) * 100)}%)
+                  </Text>
+                </View>
+              </View>
+
+              <Text style={styles.dsContextText}>
+                Perfil avaliado: {indicador.vinculoAutor} · {indicador.tipoViolencia} ·{" "}
+                {indicador.localOcorrencia} ({indicador.diasAteNotificacao} dias até notificação)
+              </Text>
+
+              <View style={styles.dsSimRow}>
+                {PERFIS_SIMULACAO.map((perfil) => (
+                  <TouchableOpacity
+                    key={perfil.rotulo}
+                    style={styles.dsSimChip}
+                    onPress={() => handleSimularRisco(perfil)}
+                    activeOpacity={0.8}
+                  >
+                    <Text style={styles.dsSimChipText}>{perfil.rotulo}</Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              <Text style={styles.dsDisclaimer}>
+                * {painel?.avisoAcademico || AVISO_ACADEMICO}
+                {painel?.atualizadoEm ? ` · Atualizado às ${painel.atualizadoEm}` : ""}
+              </Text>
             </View>
 
             <Text style={styles.sectionTitle}>Canais Nacionais de Emergência</Text>
@@ -81,6 +248,7 @@ export default function EmergencyScreen({ navigation, onExitEmergency }) {
           <TouchableOpacity
             style={styles.contactCard}
             onPress={() => handleCallNumber(item.phone, item.name)}
+            onLongPress={() => handleRemoverContato(item.id)}
             activeOpacity={0.85}
           >
             <View style={styles.contactIcon}>
@@ -88,7 +256,36 @@ export default function EmergencyScreen({ navigation, onExitEmergency }) {
             </View>
             <View style={styles.contactInfo}>
               <Text style={styles.contactName}>{item.name}</Text>
-              <Text style={styles.contactPhone}>{formatPhone(item.phone)}</Text>
+              <Text style={styles.contactPhone}>
+                {formatPhone(item.phone)}
+                {item.relationship ? ` · ${item.relationship}` : ""}
+              </Text>
+              <View style={styles.contactMetaRow}>
+                <TouchableOpacity
+                  style={styles.priorityChip}
+                  onPress={() => handleAlternarPrioridade(item)}
+                >
+                  <Ionicons name="sync-outline" size={12} color="#EC5F7B" />
+                  <Text style={styles.priorityChipText}>
+                    {item.priority || "Apoio rápido"}
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.editContactChip}
+                  onPress={() => navigation.navigate("NewContact", { contact: item })}
+                >
+                  <Ionicons name="create-outline" size={13} color="#4A1D2C" />
+                  <Text style={styles.editContactText}>Editar</Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.deleteContactChip}
+                  onPress={() => handleRemoverContato(item.id)}
+                >
+                  <Ionicons name="trash-outline" size={13} color="#C0392B" />
+                </TouchableOpacity>
+              </View>
             </View>
             <View style={styles.callTag}>
               <Ionicons name="call-outline" size={16} color="#FFFFFF" />
@@ -130,7 +327,7 @@ const styles = StyleSheet.create({
     backgroundColor: "#EC5F7B",
     borderRadius: 22,
     padding: 18,
-    marginBottom: 20,
+    marginBottom: 16,
   },
   bannerInfo: {
     flex: 1,
@@ -159,6 +356,92 @@ const styles = StyleSheet.create({
     fontWeight: "bold",
     fontSize: 13,
     marginLeft: 6,
+  },
+  warningBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFF8E1",
+    borderWidth: 1,
+    borderColor: "#FFB300",
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 14,
+  },
+  warningText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#8D5300",
+    marginLeft: 8,
+  },
+  dsCard: {
+    backgroundColor: "#FFFFFF",
+    borderRadius: 20,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1.5,
+    borderColor: "#F48FB1",
+  },
+  dsHeaderRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    flexWrap: "wrap",
+    marginBottom: 8,
+  },
+  dsTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    flex: 1,
+    marginRight: 8,
+  },
+  dsTitle: {
+    fontSize: 13,
+    fontWeight: "bold",
+    color: "#4A1D2C",
+    marginLeft: 6,
+  },
+  dsBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 12,
+  },
+  dsBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 11,
+    fontWeight: "bold",
+  },
+  dsContextText: {
+    fontSize: 12,
+    color: "#4A1D2C",
+    marginBottom: 10,
+  },
+  dsSimRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 10,
+  },
+  dsSimChip: {
+    flex: 1,
+    backgroundColor: "#FFF0F4",
+    borderWidth: 1,
+    borderColor: "#F48FB1",
+    borderRadius: 12,
+    paddingVertical: 6,
+    marginHorizontal: 3,
+    alignItems: "center",
+  },
+  dsSimChipText: {
+    fontSize: 11,
+    fontWeight: "bold",
+    color: "#EC5F7B",
+  },
+  dsDisclaimer: {
+    fontSize: 10,
+    color: "#8E5B6B",
+    fontStyle: "italic",
+    lineHeight: 14,
   },
   sectionTitle: {
     fontSize: 16,
@@ -248,6 +531,49 @@ const styles = StyleSheet.create({
     color: "#8E5B6B",
     marginTop: 2,
   },
+  contactMetaRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 8,
+  },
+  priorityChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFF0F4",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#F48FB1",
+    marginRight: 6,
+  },
+  priorityChipText: {
+    fontSize: 10,
+    fontWeight: "bold",
+    color: "#EC5F7B",
+    marginLeft: 4,
+  },
+  editContactChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#F8E8EE",
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 10,
+    marginRight: 6,
+  },
+  editContactText: {
+    fontSize: 10,
+    fontWeight: "600",
+    color: "#4A1D2C",
+    marginLeft: 3,
+  },
+  deleteContactChip: {
+    backgroundColor: "#FDEDEC",
+    paddingHorizontal: 7,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
   callTag: {
     flexDirection: "row",
     alignItems: "center",
@@ -255,6 +581,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     paddingVertical: 8,
     borderRadius: 16,
+    marginLeft: 8,
   },
   callTagText: {
     color: "#FFFFFF",
