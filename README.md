@@ -56,11 +56,14 @@ selene/
 
 ---
 
-## 3. Matriz de Responsabilidades
+## 3. Matriz de Responsabilidades e Quadro Kanban
 
 | Integrante | GitHub | CRUDs e Módulos de Mobile / Back-end (`api/` e `app/`) | Etapas do Pipeline de Data Science (`data-science/`) |
 | :--- | :--- | :--- | :--- |
 | **Messias Rafael Bernardes** | `@messiasrafaelb` | **API Node.js/Express em Layered Architecture (`api/src/`)** + **Autenticação JWT/Bcrypt**, **CRUD de Usuárias (`/users`)**, **CRUD de Ciclos Menstruais (`/cycles`)**, **CRUD de Contatos de Segurança (`/contacts`)**, **Disfarce (5s + PIN)** e **Saída Rápida (1 toque)** | **1.** Governança e Dicionário · **2.** Diagnóstico nas 5 Dimensões · **3.** Tratamento Ordenado · **4.** Análise Exploratória (EDA) · **5.** Modelagem com Validação Cruzada (5 Folds) · **6.** Avaliação no Teste e Integração (`riscoRepeticao`) |
+
+### Quadro Kanban Atualizado (GitHub Projects — Entrega Final)
+![Quadro Kanban — Projeto Selene](kanban.png)
 
 ---
 
