@@ -12,30 +12,41 @@ import {
   flowOptions,
   moodOptions,
   formatDateInput,
-  canOpenNewCycle,
-  openNewCycle,
-} from "../../data/mockData";
+  criar,
+} from "../../services/api";
 
-export default function NewCycleScreen({ navigation }) {
+export default function NewCycleScreen({ navigation, currentUser }) {
+  const userId = currentUser?.id || 1;
   const [startDate, setStartDate] = useState("22/10/2026");
   const [selectedFlow, setSelectedFlow] = useState(flowOptions[1].code);
   const [selectedMood, setSelectedMood] = useState(moodOptions[0].code);
   const [warningMessage, setWarningMessage] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  function handleSave() {
-    if (!canOpenNewCycle(1)) {
-      setWarningMessage("Você não pode iniciar um novo ciclo enquanto houver um ciclo em aberto.");
-      return;
+  async function handleSave() {
+    const flowDesc =
+      flowOptions.find((f) => f.code === selectedFlow)?.description || "Moderado";
+    const moodDesc =
+      moodOptions.find((m) => m.code === selectedMood)?.description || "Bem";
+
+    try {
+      setLoading(true);
+      setWarningMessage("");
+      await criar("cycles", {
+        userId,
+        startDate: startDate || "22/10/2026",
+        flow: flowDesc,
+        mood: moodDesc,
+      });
+      navigation.goBack();
+    } catch (erro) {
+      setWarningMessage(
+        erro.message ||
+          "Você não pode iniciar um novo ciclo enquanto houver um ciclo em aberto."
+      );
+    } finally {
+      setLoading(false);
     }
-
-    openNewCycle({
-      userId: 1,
-      startDate,
-      flowCode: selectedFlow,
-      moodCode: selectedMood,
-    });
-
-    navigation.goBack();
   }
 
   return (
@@ -110,8 +121,15 @@ export default function NewCycleScreen({ navigation }) {
         </Text>
       </View>
 
-      <TouchableOpacity style={styles.saveButton} onPress={handleSave} activeOpacity={0.85}>
-        <Text style={styles.saveButtonText}>Iniciar Ciclo</Text>
+      <TouchableOpacity
+        style={styles.saveButton}
+        onPress={handleSave}
+        disabled={loading}
+        activeOpacity={0.85}
+      >
+        <Text style={styles.saveButtonText}>
+          {loading ? "Salvando..." : "Iniciar Ciclo"}
+        </Text>
       </TouchableOpacity>
     </ScrollView>
   );

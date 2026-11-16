@@ -1,43 +1,88 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { View, Text, FlatList, TouchableOpacity, StyleSheet } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {
-  findCyclesByUserId,
-  findCycleSummaryByUserId,
+  listar,
+  atualizar,
+  remover,
+  summarizeCycles,
   calculatePeriodDays,
-  canOpenNewCycle,
-} from "../../data/mockData";
+  AVISO_ACADEMICO,
+} from "../../services/api";
 
 const PAGE_SIZE = 3;
+const SEQUENCIA_FLUXO = ["Leve", "Moderado", "Intenso"];
 
-export default function CycleHistoryScreen({ navigation }) {
+const COR_RISCO = {
+  Baixo: "#1F8A5C",
+  Médio: "#C9A227",
+  Alto: "#C0392B",
+};
+
+export default function CycleHistoryScreen({ navigation, currentUser }) {
+  const userId = currentUser?.id || 1;
+  const [userCycles, setUserCycles] = useState([]);
   const [page, setPage] = useState(1);
   const [warningMessage, setWarningMessage] = useState("");
-  const [, setRefreshTick] = useState(0);
+
+  const carregarCiclos = useCallback(async () => {
+    try {
+      const lista = await listar("cycles", userId);
+      setUserCycles(Array.isArray(lista) ? lista : []);
+    } catch (erro) {
+      setWarningMessage("Não foi possível carregar os ciclos da API (http://localhost:3333).");
+    }
+  }, [userId]);
 
   useEffect(() => {
+    carregarCiclos();
     if (!navigation?.addListener) return;
     const unsubscribe = navigation.addListener("focus", () => {
       setWarningMessage("");
-      setRefreshTick((prev) => prev + 1);
+      carregarCiclos();
     });
     return unsubscribe;
-  }, [navigation]);
+  }, [navigation, carregarCiclos]);
 
-  const userCycles = findCyclesByUserId(1);
-  const summary = findCycleSummaryByUserId(1);
-
+  const summary = summarizeCycles(userCycles);
   const totalPages = Math.max(1, Math.ceil(userCycles.length / PAGE_SIZE));
-  const startIndex = (page - 1) * PAGE_SIZE;
+  const paginaSegura = Math.min(page, totalPages);
+  const startIndex = (paginaSegura - 1) * PAGE_SIZE;
   const paginatedCycles = userCycles.slice(startIndex, startIndex + PAGE_SIZE);
 
   function handlePressNewCycle() {
-    if (!canOpenNewCycle(1)) {
+    if (summary.openCycle) {
       setWarningMessage("Você não pode iniciar um novo ciclo enquanto houver um ciclo em aberto.");
       return;
     }
     setWarningMessage("");
     navigation.navigate("NewCycle");
+  }
+
+  async function handleAlternarFluxoOuEncerrar(item) {
+    try {
+      setWarningMessage("");
+      if (!item.endDate) {
+        await atualizar("cycles", item.id, { endDate: "22/10/2026" });
+      } else {
+        const atualIdx = SEQUENCIA_FLUXO.indexOf(item.flow);
+        const proximoFluxo = SEQUENCIA_FLUXO[(atualIdx + 1) % SEQUENCIA_FLUXO.length];
+        await atualizar("cycles", item.id, { flow: proximoFluxo });
+      }
+      await carregarCiclos();
+    } catch (erro) {
+      setWarningMessage(erro.message || "Falha ao atualizar o ciclo na API.");
+    }
+  }
+
+  async function handleRemoverCiclo(id) {
+    try {
+      setWarningMessage("");
+      await remover("cycles", id);
+      await carregarCiclos();
+    } catch (erro) {
+      setWarningMessage(erro.message || "Falha ao excluir o ciclo na API.");
+    }
   }
 
   return (
@@ -76,9 +121,16 @@ export default function CycleHistoryScreen({ navigation }) {
         renderItem={({ item }) => {
           const isCurrent = !item.endDate;
           const duration = calculatePeriodDays(item.startDate, item.endDate);
+          const risco = item.riscoRepeticao || "Baixo";
+          const corRisco = COR_RISCO[risco] || COR_RISCO.Baixo;
 
           return (
-            <View style={styles.card}>
+            <TouchableOpacity
+              style={styles.card}
+              onPress={() => handleAlternarFluxoOuEncerrar(item)}
+              onLongPress={() => handleRemoverCiclo(item.id)}
+              activeOpacity={0.88}
+            >
               <View style={styles.cardHeader}>
                 <View style={styles.dateRow}>
                   <Ionicons name="calendar" size={18} color="#EC5F7B" />
@@ -97,49 +149,91 @@ export default function CycleHistoryScreen({ navigation }) {
                 <Text style={styles.infoText}>Fluxo: {item.flow}</Text>
                 <Text style={styles.infoText}>Humor: {item.mood}</Text>
               </View>
-            </View>
+
+              <View style={styles.dsActionsRow}>
+                <View style={[styles.riskBadge, { backgroundColor: corRisco }]}>
+                  <Text style={styles.riskBadgeText}>
+                    Indicador DS: Risco {risco}
+                    {item.probabilidadeRisco !== undefined
+                      ? ` (${Math.round(Number(item.probabilidadeRisco) * 100)}%)`
+                      : ""}
+                  </Text>
+                </View>
+
+                <View style={styles.crudButtonsRow}>
+                  <TouchableOpacity
+                    style={styles.updateChip}
+                    onPress={() => handleAlternarFluxoOuEncerrar(item)}
+                  >
+                    <Ionicons name="create-outline" size={14} color="#EC5F7B" />
+                    <Text style={styles.updateChipText}>
+                      {isCurrent ? "Encerrar" : "Fluxo"}
+                    </Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity
+                    style={styles.deleteChip}
+                    onPress={() => handleRemoverCiclo(item.id)}
+                  >
+                    <Ionicons name="trash-outline" size={14} color="#C0392B" />
+                  </TouchableOpacity>
+                </View>
+              </View>
+            </TouchableOpacity>
           );
         }}
         ListFooterComponent={
-          <View style={styles.paginationRow}>
-            <TouchableOpacity
-              style={[styles.pageButton, page === 1 && styles.pageButtonDisabled]}
-              disabled={page === 1}
-              onPress={() => setPage(page - 1)}
-            >
-              <Ionicons
-                name="chevron-back"
-                size={16}
-                color={page === 1 ? "#C8A6B0" : "#EC5F7B"}
-              />
-              <Text style={[styles.pageButtonText, page === 1 && styles.pageButtonTextDisabled]}>
-                Anterior
-              </Text>
-            </TouchableOpacity>
-
-            <Text style={styles.pageIndicator}>
-              Página {page} de {totalPages}
-            </Text>
-
-            <TouchableOpacity
-              style={[styles.pageButton, page === totalPages && styles.pageButtonDisabled]}
-              disabled={page === totalPages}
-              onPress={() => setPage(page + 1)}
-            >
-              <Text
-                style={[
-                  styles.pageButtonText,
-                  page === totalPages && styles.pageButtonTextDisabled,
-                ]}
+          <View>
+            <View style={styles.paginationRow}>
+              <TouchableOpacity
+                style={[styles.pageButton, paginaSegura === 1 && styles.pageButtonDisabled]}
+                disabled={paginaSegura === 1}
+                onPress={() => setPage(paginaSegura - 1)}
               >
-                Próxima
+                <Ionicons
+                  name="chevron-back"
+                  size={16}
+                  color={paginaSegura === 1 ? "#C8A6B0" : "#EC5F7B"}
+                />
+                <Text
+                  style={[
+                    styles.pageButtonText,
+                    paginaSegura === 1 && styles.pageButtonTextDisabled,
+                  ]}
+                >
+                  Anterior
+                </Text>
+              </TouchableOpacity>
+
+              <Text style={styles.pageIndicator}>
+                Página {paginaSegura} de {totalPages}
               </Text>
-              <Ionicons
-                name="chevron-forward"
-                size={16}
-                color={page === totalPages ? "#C8A6B0" : "#EC5F7B"}
-              />
-            </TouchableOpacity>
+
+              <TouchableOpacity
+                style={[
+                  styles.pageButton,
+                  paginaSegura === totalPages && styles.pageButtonDisabled,
+                ]}
+                disabled={paginaSegura === totalPages}
+                onPress={() => setPage(paginaSegura + 1)}
+              >
+                <Text
+                  style={[
+                    styles.pageButtonText,
+                    paginaSegura === totalPages && styles.pageButtonTextDisabled,
+                  ]}
+                >
+                  Próxima
+                </Text>
+                <Ionicons
+                  name="chevron-forward"
+                  size={16}
+                  color={paginaSegura === totalPages ? "#C8A6B0" : "#EC5F7B"}
+                />
+              </TouchableOpacity>
+            </View>
+
+            <Text style={styles.disclaimerText}>* {AVISO_ACADEMICO}</Text>
           </View>
         }
       />
@@ -259,10 +353,58 @@ const styles = StyleSheet.create({
   infoRow: {
     flexDirection: "row",
     justifyContent: "space-between",
+    marginBottom: 10,
   },
   infoText: {
     fontSize: 13,
     color: "#8E5B6B",
+  },
+  dsActionsRow: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    borderTopWidth: 1,
+    borderTopColor: "#FDF0F4",
+    paddingTop: 10,
+  },
+  riskBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 10,
+  },
+  riskBadgeText: {
+    color: "#FFFFFF",
+    fontSize: 11,
+    fontWeight: "bold",
+  },
+  crudButtonsRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  updateChip: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFF0F4",
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#F48FB1",
+    marginRight: 6,
+  },
+  updateChipText: {
+    fontSize: 11,
+    fontWeight: "bold",
+    color: "#EC5F7B",
+    marginLeft: 4,
+  },
+  deleteChip: {
+    backgroundColor: "#FDEDEC",
+    paddingHorizontal: 8,
+    paddingVertical: 5,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: "#F5B7B1",
   },
   paginationRow: {
     flexDirection: "row",
@@ -298,6 +440,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     color: "#8E5B6B",
+  },
+  disclaimerText: {
+    fontSize: 11,
+    color: "#8E5B6B",
+    fontStyle: "italic",
+    textAlign: "center",
+    marginTop: 14,
+    lineHeight: 16,
   },
   newButton: {
     position: "absolute",

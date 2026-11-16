@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   SafeAreaView,
   View,
@@ -11,11 +11,13 @@ import {
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
 import {
-  findUserById,
-  findCyclesByUserId,
-  findCycleSummaryByUserId,
-  closeCurrentCycle,
-} from "../../data/mockData";
+  buscarPorId,
+  listar,
+  atualizar,
+  remover,
+  summarizeCycles,
+  parseBrDate,
+} from "../../services/api";
 
 const WEEK_DAYS = [
   { id: "1", label: "S", day: "19", active: false, period: false },
@@ -44,46 +46,69 @@ const MONTH_NAMES = [
   "Dezembro",
 ];
 
-function parseDayMonthYear(dateStr) {
-  if (!dateStr) return null;
-  const parts = dateStr.split("/");
-  if (parts.length !== 3) return null;
-  return new Date(Number(parts[2]), Number(parts[1]) - 1, Number(parts[0]));
-}
-
 function isDateInCycle(year, monthIndex, dayNumber, userCycles) {
   const target = new Date(year, monthIndex, dayNumber);
 
   return userCycles.some((cycle) => {
-    const start = parseDayMonthYear(cycle.startDate);
-    const end = cycle.endDate
-      ? parseDayMonthYear(cycle.endDate)
-      : new Date(2026, 9, 24);
-
+    const start = parseBrDate(cycle.startDate);
+    const end = cycle.endDate ? parseBrDate(cycle.endDate) : new Date(2026, 9, 24);
     if (!start || !end) return false;
     return target >= start && target <= end;
   });
 }
 
-export default function CycleHomeScreen({ navigation, onEnterEmergency, onLogout }) {
+export default function CycleHomeScreen({
+  navigation,
+  currentUser,
+  onEnterEmergency,
+  onLogout,
+}) {
+  const userId = currentUser?.id || 1;
+  const [user, setUser] = useState(
+    currentUser || { id: 1, name: "Selena", email: "selena@gmail.com", pin: "1800" }
+  );
+  const [userCycles, setUserCycles] = useState([]);
+  const [apiError, setApiError] = useState("");
   const [pinModalVisible, setPinModalVisible] = useState(false);
+  const [pinError, setPinError] = useState("");
+  const [pinInput, setPinInput] = useState("");
+
+  const [accountModalVisible, setAccountModalVisible] = useState(false);
+  const [editNameInput, setEditNameInput] = useState("");
+  const [deletePinInput, setDeletePinInput] = useState("");
+  const [accountError, setAccountError] = useState("");
+
   const [calendarModalVisible, setCalendarModalVisible] = useState(false);
   const [calendarYear, setCalendarYear] = useState(2026);
   const [calendarMonth, setCalendarMonth] = useState(9);
-  const [pinInput, setPinInput] = useState("");
-  const [, setRefreshTick] = useState(0);
+
+  const carregarDados = useCallback(async () => {
+    try {
+      setApiError("");
+      const [usuariaApi, ciclosApi] = await Promise.all([
+        buscarPorId("users", userId),
+        listar("cycles", userId),
+      ]);
+      if (usuariaApi) {
+        setUser(usuariaApi);
+        setEditNameInput(usuariaApi.name || "");
+      }
+      setUserCycles(Array.isArray(ciclosApi) ? ciclosApi : []);
+    } catch (erro) {
+      setApiError("Não foi possível carregar os dados da API (http://localhost:3333).");
+    }
+  }, [userId]);
 
   useEffect(() => {
+    carregarDados();
     if (!navigation?.addListener) return;
     const unsubscribe = navigation.addListener("focus", () => {
-      setRefreshTick((prev) => prev + 1);
+      carregarDados();
     });
     return unsubscribe;
-  }, [navigation]);
+  }, [navigation, carregarDados]);
 
-  const user = findUserById(1);
-  const userCycles = findCyclesByUserId(1);
-  const summary = findCycleSummaryByUserId(1);
+  const summary = summarizeCycles(userCycles);
   const hasOpenCycle = Boolean(summary.openCycle);
 
   const firstWeekdayOfMonth = new Date(calendarYear, calendarMonth, 1).getDay();
@@ -110,6 +135,12 @@ export default function CycleHomeScreen({ navigation, onEnterEmergency, onLogout
   }
 
   function handleConfirmPin() {
+    const pinEsperado = String(user?.pin || "1800");
+    if (pinInput !== pinEsperado) {
+      setPinError(`PIN incorreto. Digite o PIN de 4 dígitos da conta.`);
+      return;
+    }
+    setPinError("");
     setPinModalVisible(false);
     setPinInput("");
     if (onEnterEmergency) {
@@ -117,16 +148,70 @@ export default function CycleHomeScreen({ navigation, onEnterEmergency, onLogout
     }
   }
 
-  function handleClosePeriod() {
-    closeCurrentCycle(1);
-    setRefreshTick((prev) => prev + 1);
+  async function handleClosePeriod() {
+    if (!summary.openCycle) return;
+    try {
+      await atualizar("cycles", summary.openCycle.id, {
+        endDate: "22/10/2026",
+      });
+      await carregarDados();
+    } catch (erro) {
+      setApiError(erro.message || "Falha ao encerrar o ciclo na API.");
+    }
+  }
+
+  async function handleUpdateUserName() {
+    const nomeLimpo = String(editNameInput || "").trim();
+    if (!nomeLimpo) {
+      setAccountError("Informe um nome válido para atualizar seu perfil.");
+      return;
+    }
+    try {
+      setAccountError("");
+      const atualizada = await atualizar("users", user.id, { name: nomeLimpo });
+      setUser(atualizada);
+      setAccountModalVisible(false);
+    } catch (erro) {
+      setAccountError(erro.message || "Falha ao atualizar perfil na API.");
+    }
+  }
+
+  async function handleDeleteAccountWithPin() {
+    const pinEsperado = String(user?.pin || "1800");
+    if (deletePinInput !== pinEsperado) {
+      setAccountError("PIN incorreto. Digite seu PIN de 4 dígitos para apagar a conta.");
+      return;
+    }
+    try {
+      setAccountError("");
+      await remover("users", user.id);
+      setAccountModalVisible(false);
+      setDeletePinInput("");
+      if (onLogout) {
+        onLogout();
+      }
+    } catch (erro) {
+      setAccountError(erro.message || "Falha ao excluir a conta na API.");
+    }
   }
 
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
         <View style={styles.topBar}>
-          <Text style={styles.greeting}>Olá, {user.name}</Text>
+          <TouchableOpacity
+            style={styles.profileGreetingRow}
+            onPress={() => {
+              setAccountError("");
+              setDeletePinInput("");
+              setEditNameInput(user.name || "");
+              setAccountModalVisible(true);
+            }}
+            activeOpacity={0.75}
+          >
+            <Text style={styles.greeting}>Olá, {user.name}</Text>
+            <Ionicons name="settings-outline" size={16} color="#EC5F7B" style={styles.settingsIcon} />
+          </TouchableOpacity>
 
           <View style={styles.topActions}>
             <TouchableOpacity
@@ -148,6 +233,13 @@ export default function CycleHomeScreen({ navigation, onEnterEmergency, onLogout
             </TouchableOpacity>
           </View>
         </View>
+
+        {Boolean(apiError) && (
+          <View style={styles.warningBanner}>
+            <Ionicons name="warning" size={18} color="#B26A00" />
+            <Text style={styles.warningText}>{apiError}</Text>
+          </View>
+        )}
 
         <View style={styles.weekStrip}>
           {WEEK_DAYS.map((item) => (
@@ -238,7 +330,11 @@ export default function CycleHomeScreen({ navigation, onEnterEmergency, onLogout
       <TouchableOpacity
         style={styles.secretLogoButton}
         delayLongPress={5000}
-        onLongPress={() => setPinModalVisible(true)}
+        onLongPress={() => {
+          setPinError("");
+          setPinInput("");
+          setPinModalVisible(true);
+        }}
         activeOpacity={0.9}
       >
         <Ionicons name="moon" size={24} color="#FFFFFF" />
@@ -342,6 +438,82 @@ export default function CycleHomeScreen({ navigation, onEnterEmergency, onLogout
       </Modal>
 
       <Modal
+        visible={accountModalVisible}
+        transparent
+        animationType="slide"
+        onRequestClose={() => setAccountModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.bottomSheet}>
+            <View style={styles.sheetHandle} />
+            <Text style={styles.sheetTitle}>Minha Conta</Text>
+            <Text style={styles.sheetSubtitle}>{user.email}</Text>
+
+            {Boolean(accountError) && (
+              <Text style={styles.pinErrorText}>{accountError}</Text>
+            )}
+
+            <View style={styles.accountSection}>
+              <Text style={styles.accountLabel}>Nome de exibição</Text>
+              <View style={styles.accountRow}>
+                <TextInput
+                  style={styles.accountInput}
+                  value={editNameInput}
+                  onChangeText={setEditNameInput}
+                  placeholder="Seu nome"
+                  placeholderTextColor="#B08A95"
+                />
+                <TouchableOpacity
+                  style={styles.saveNameButton}
+                  onPress={handleUpdateUserName}
+                  activeOpacity={0.85}
+                >
+                  <Text style={styles.saveNameButtonText}>Salvar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+
+            <View style={styles.dangerZoneBox}>
+              <Text style={styles.dangerTitle}>Apagar Conta com Segurança</Text>
+              <Text style={styles.dangerDesc}>
+                Digite seu PIN de 4 dígitos para remover sua conta e todo o histórico do aplicativo.
+              </Text>
+              <TextInput
+                style={styles.pinInputSmall}
+                value={deletePinInput}
+                onChangeText={(text) => {
+                  setAccountError("");
+                  setDeletePinInput(text.replace(/\D/g, "").slice(0, 4));
+                }}
+                placeholder="PIN (4 dígitos)"
+                placeholderTextColor="#B08A95"
+                keyboardType="number-pad"
+                maxLength={4}
+                secureTextEntry
+              />
+              <TouchableOpacity
+                style={styles.deleteAccountButton}
+                onPress={handleDeleteAccountWithPin}
+                activeOpacity={0.85}
+              >
+                <Ionicons name="trash-outline" size={16} color="#FFFFFF" />
+                <Text style={styles.deleteAccountButtonText}>
+                  Confirmar Exclusão da Conta
+                </Text>
+              </TouchableOpacity>
+            </View>
+
+            <TouchableOpacity
+              style={styles.closeAccountModalButton}
+              onPress={() => setAccountModalVisible(false)}
+            >
+              <Text style={styles.cancelButtonText}>Fechar</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
+
+      <Modal
         visible={pinModalVisible}
         transparent
         animationType="slide"
@@ -353,10 +525,17 @@ export default function CycleHomeScreen({ navigation, onEnterEmergency, onLogout
             <Text style={styles.sheetTitle}>Acesso Protegido</Text>
             <Text style={styles.sheetSubtitle}>Digite seu PIN de 4 dígitos</Text>
 
+            {Boolean(pinError) && (
+              <Text style={styles.pinErrorText}>{pinError}</Text>
+            )}
+
             <TextInput
               style={styles.pinInput}
               value={pinInput}
-              onChangeText={(text) => setPinInput(text.replace(/\D/g, "").slice(0, 4))}
+              onChangeText={(text) => {
+                setPinError("");
+                setPinInput(text.replace(/\D/g, "").slice(0, 4));
+              }}
               placeholder="••••"
               placeholderTextColor="#B08A95"
               keyboardType="number-pad"
@@ -402,10 +581,17 @@ const styles = StyleSheet.create({
     alignItems: "center",
     marginBottom: 18,
   },
+  profileGreetingRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
   greeting: {
     fontSize: 18,
     fontWeight: "bold",
     color: "#4A1D2C",
+  },
+  settingsIcon: {
+    marginLeft: 6,
   },
   topActions: {
     flexDirection: "row",
@@ -443,6 +629,24 @@ const styles = StyleSheet.create({
     fontWeight: "600",
     color: "#EC5F7B",
     marginLeft: 4,
+  },
+  warningBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFF8E1",
+    borderWidth: 1,
+    borderColor: "#FFB300",
+    borderRadius: 14,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    marginBottom: 14,
+  },
+  warningText: {
+    flex: 1,
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#8D5300",
+    marginLeft: 8,
   },
   weekStrip: {
     flexDirection: "row",
@@ -747,7 +951,106 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: "#8E5B6B",
     marginTop: 4,
-    marginBottom: 18,
+    marginBottom: 12,
+  },
+  accountSection: {
+    width: "100%",
+    marginBottom: 16,
+  },
+  accountLabel: {
+    fontSize: 12,
+    fontWeight: "600",
+    color: "#4A1D2C",
+    marginBottom: 6,
+  },
+  accountRow: {
+    flexDirection: "row",
+    alignItems: "center",
+  },
+  accountInput: {
+    flex: 1,
+    backgroundColor: "#FFF8FA",
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    fontSize: 14,
+    color: "#4A1D2C",
+    borderWidth: 1,
+    borderColor: "#F5C2D0",
+    marginRight: 8,
+  },
+  saveNameButton: {
+    backgroundColor: "#EC5F7B",
+    paddingHorizontal: 16,
+    paddingVertical: 11,
+    borderRadius: 14,
+  },
+  saveNameButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "bold",
+    fontSize: 13,
+  },
+  dangerZoneBox: {
+    width: "100%",
+    backgroundColor: "#FFF5F5",
+    borderRadius: 18,
+    padding: 14,
+    borderWidth: 1,
+    borderColor: "#F5B7B1",
+    marginBottom: 16,
+  },
+  dangerTitle: {
+    fontSize: 13,
+    fontWeight: "bold",
+    color: "#C0392B",
+    marginBottom: 4,
+  },
+  dangerDesc: {
+    fontSize: 11,
+    color: "#8E5B6B",
+    lineHeight: 16,
+    marginBottom: 10,
+  },
+  pinInputSmall: {
+    width: "100%",
+    backgroundColor: "#FFFFFF",
+    borderRadius: 12,
+    paddingVertical: 10,
+    fontSize: 16,
+    letterSpacing: 6,
+    textAlign: "center",
+    color: "#4A1D2C",
+    borderWidth: 1,
+    borderColor: "#F5B7B1",
+    marginBottom: 10,
+  },
+  deleteAccountButton: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: "#C0392B",
+    paddingVertical: 12,
+    borderRadius: 14,
+  },
+  deleteAccountButtonText: {
+    color: "#FFFFFF",
+    fontWeight: "bold",
+    fontSize: 13,
+    marginLeft: 6,
+  },
+  closeAccountModalButton: {
+    width: "100%",
+    paddingVertical: 12,
+    borderRadius: 18,
+    backgroundColor: "#F8E8EE",
+    alignItems: "center",
+  },
+  pinErrorText: {
+    fontSize: 12,
+    color: "#C0392B",
+    fontWeight: "600",
+    marginBottom: 10,
+    textAlign: "center",
   },
   pinInput: {
     width: "100%",
