@@ -9,7 +9,7 @@ import {
   StyleSheet,
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { registerUser } from "../data/mockData";
+import { registerUserApi } from "../services/api";
 
 export default function RegisterScreen({ navigation }) {
   const [name, setName] = useState("");
@@ -18,16 +18,19 @@ export default function RegisterScreen({ navigation }) {
   const [pin, setPin] = useState("");
   const [showPinInfo, setShowPinInfo] = useState(false);
   const [warningMessage, setWarningMessage] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  function handleRegister() {
-    const result = registerUser({ name, email, password, pin });
-    if (!result.success) {
-      setWarningMessage(result.message);
-      return;
+  async function handleRegister() {
+    try {
+      setLoading(true);
+      setWarningMessage("");
+      await registerUserApi({ name, email, password, pin });
+      navigation.navigate("Login");
+    } catch (erro) {
+      setWarningMessage(erro.message || "Falha ao cadastrar conta na API.");
+    } finally {
+      setLoading(false);
     }
-
-    setWarningMessage("");
-    navigation.navigate("Login");
   }
 
   return (
@@ -104,7 +107,7 @@ export default function RegisterScreen({ navigation }) {
             {showPinInfo && (
               <View style={styles.pinTooltip}>
                 <Text style={styles.pinTooltipText}>
-                  Código numérico usado para recuperar sua senha e acessar recursos privados do app (segure o ícone da lua por 5s na tela inicial).
+                  Código numérico usado para recuperar sua senha, excluir a conta e acessar recursos privados do app (segure o ícone da lua por 5s na tela inicial).
                 </Text>
               </View>
             )}
@@ -121,8 +124,15 @@ export default function RegisterScreen({ navigation }) {
             />
           </View>
 
-          <TouchableOpacity style={styles.submitButton} onPress={handleRegister} activeOpacity={0.85}>
-            <Text style={styles.submitButtonText}>Cadastrar Conta</Text>
+          <TouchableOpacity
+            style={styles.submitButton}
+            onPress={handleRegister}
+            disabled={loading}
+            activeOpacity={0.85}
+          >
+            <Text style={styles.submitButtonText}>
+              {loading ? "Salvando..." : "Cadastrar Conta"}
+            </Text>
           </TouchableOpacity>
         </View>
 

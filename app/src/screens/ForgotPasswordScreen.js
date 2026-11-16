@@ -9,7 +9,7 @@ import {
   StyleSheet,
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
-import { resetPasswordWithPin } from "../data/mockData";
+import { resetPasswordApi } from "../services/api";
 
 export default function ForgotPasswordScreen({ navigation }) {
   const [email, setEmail] = useState("");
@@ -17,19 +17,22 @@ export default function ForgotPasswordScreen({ navigation }) {
   const [newPassword, setNewPassword] = useState("");
   const [warningMessage, setWarningMessage] = useState("");
   const [successMessage, setSuccessMessage] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  function handleResetPassword() {
-    const result = resetPasswordWithPin({ email, pin, newPassword });
-    if (!result.success) {
+  async function handleResetPassword() {
+    try {
+      setLoading(true);
+      setWarningMessage("");
       setSuccessMessage("");
-      setWarningMessage(result.message);
-      return;
+      await resetPasswordApi({ email, pin, newPassword });
+      setSuccessMessage("Senha redefinida com sucesso! Você já pode entrar.");
+      setPin("");
+      setNewPassword("");
+    } catch (erro) {
+      setWarningMessage(erro.message || "Falha ao redefinir a senha na API.");
+    } finally {
+      setLoading(false);
     }
-
-    setWarningMessage("");
-    setSuccessMessage("Senha redefinida com sucesso! Você já pode entrar.");
-    setPin("");
-    setNewPassword("");
   }
 
   return (
@@ -102,9 +105,12 @@ export default function ForgotPasswordScreen({ navigation }) {
           <TouchableOpacity
             style={styles.submitButton}
             onPress={handleResetPassword}
+            disabled={loading}
             activeOpacity={0.85}
           >
-            <Text style={styles.submitButtonText}>Redefinir Senha</Text>
+            <Text style={styles.submitButtonText}>
+              {loading ? "Atualizando..." : "Redefinir Senha"}
+            </Text>
           </TouchableOpacity>
         </View>
 

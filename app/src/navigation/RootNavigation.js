@@ -10,6 +10,7 @@ const AuthStack = createNativeStackNavigator();
 
 export default function RootNavigation({
   authenticated,
+  currentUser,
   emergencyMode,
   onLogin,
   onLogout,
@@ -29,11 +30,17 @@ export default function RootNavigation({
   }
 
   if (emergencyMode) {
-    return <EmergencyStack onExitEmergency={onExitEmergency} />;
+    return (
+      <EmergencyStack
+        currentUser={currentUser}
+        onExitEmergency={onExitEmergency}
+      />
+    );
   }
 
   return (
     <DisguiseTabs
+      currentUser={currentUser}
       onEnterEmergency={onEnterEmergency}
       onLogout={onLogout}
     />

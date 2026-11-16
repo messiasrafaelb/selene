@@ -1,4 +1,4 @@
-import React from "react";
+import React, { useState } from "react";
 import {
   SafeAreaView,
   View,
@@ -8,8 +8,31 @@ import {
   StyleSheet,
 } from "react-native";
 import Ionicons from "@expo/vector-icons/Ionicons";
+import { loginUserApi } from "../services/api";
 
 export default function LoginScreen({ navigation, onLogin }) {
+  const [email, setEmail] = useState("selena@gmail.com");
+  const [password, setPassword] = useState("123456");
+  const [warningMessage, setWarningMessage] = useState("");
+  const [loading, setLoading] = useState(false);
+
+  async function handleSubmitLogin() {
+    try {
+      setLoading(true);
+      setWarningMessage("");
+      const usuario = await loginUserApi({ email, password });
+      if (onLogin) {
+        onLogin(usuario);
+      }
+    } catch (erro) {
+      setWarningMessage(
+        erro.message || "Falha ao conectar com a API (http://localhost:3333)."
+      );
+    } finally {
+      setLoading(false);
+    }
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.header}>
@@ -20,11 +43,20 @@ export default function LoginScreen({ navigation, onLogin }) {
         <Text style={styles.subtitle}>Seu calendário menstrual e bem-estar</Text>
       </View>
 
+      {Boolean(warningMessage) && (
+        <View style={styles.warningBanner}>
+          <Ionicons name="warning" size={20} color="#B26A00" />
+          <Text style={styles.warningText}>{warningMessage}</Text>
+        </View>
+      )}
+
       <View style={styles.card}>
         <View style={styles.field}>
           <Text style={styles.label}>E-mail</Text>
           <TextInput
             style={styles.input}
+            value={email}
+            onChangeText={setEmail}
             placeholder="selena@gmail.com"
             placeholderTextColor="#B08A95"
             keyboardType="email-address"
@@ -44,14 +76,23 @@ export default function LoginScreen({ navigation, onLogin }) {
           </View>
           <TextInput
             style={styles.input}
+            value={password}
+            onChangeText={setPassword}
             placeholder="••••••••"
             placeholderTextColor="#B08A95"
             secureTextEntry
           />
         </View>
 
-        <TouchableOpacity style={styles.loginButton} onPress={onLogin} activeOpacity={0.85}>
-          <Text style={styles.loginButtonText}>Entrar</Text>
+        <TouchableOpacity
+          style={styles.loginButton}
+          onPress={handleSubmitLogin}
+          disabled={loading}
+          activeOpacity={0.85}
+        >
+          <Text style={styles.loginButtonText}>
+            {loading ? "Autenticando..." : "Entrar"}
+          </Text>
         </TouchableOpacity>
 
         <TouchableOpacity
@@ -77,7 +118,7 @@ const styles = StyleSheet.create({
   },
   header: {
     alignItems: "center",
-    marginBottom: 32,
+    marginBottom: 28,
   },
   logoBadge: {
     width: 72,
@@ -102,6 +143,24 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: "#8E5B6B",
     marginTop: 4,
+  },
+  warningBanner: {
+    flexDirection: "row",
+    alignItems: "center",
+    backgroundColor: "#FFF8E1",
+    borderWidth: 1,
+    borderColor: "#FFB300",
+    borderRadius: 16,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    marginBottom: 16,
+  },
+  warningText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: "600",
+    color: "#8D5300",
+    marginLeft: 10,
   },
   card: {
     backgroundColor: "#FFFFFF",

@@ -4,7 +4,7 @@ import NewCycleScreen from "../screens/cycle/NewCycleScreen";
 
 const Stack = createNativeStackNavigator();
 
-export default function CycleStack({ onEnterEmergency, onLogout }) {
+export default function CycleStack({ currentUser, onEnterEmergency, onLogout }) {
   return (
     <Stack.Navigator
       screenOptions={{
@@ -17,16 +17,15 @@ export default function CycleStack({ onEnterEmergency, onLogout }) {
         {(props) => (
           <CycleHomeScreen
             {...props}
+            currentUser={currentUser}
             onEnterEmergency={onEnterEmergency}
             onLogout={onLogout}
           />
         )}
       </Stack.Screen>
-      <Stack.Screen
-        name="NewCycle"
-        component={NewCycleScreen}
-        options={{ title: "Registrar Ciclo" }}
-      />
+      <Stack.Screen name="NewCycle" options={{ title: "Registrar Ciclo" }}>
+        {(props) => <NewCycleScreen {...props} currentUser={currentUser} />}
+      </Stack.Screen>
     </Stack.Navigator>
   );
 }

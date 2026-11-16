@@ -5,7 +5,7 @@ import HistoryStack from "./HistoryStack";
 
 const Tab = createBottomTabNavigator();
 
-export default function DisguiseTabs({ onEnterEmergency, onLogout }) {
+export default function DisguiseTabs({ currentUser, onEnterEmergency, onLogout }) {
   return (
     <Tab.Navigator
       screenOptions={{
@@ -31,6 +31,7 @@ export default function DisguiseTabs({ onEnterEmergency, onLogout }) {
         {(props) => (
           <CycleStack
             {...props}
+            currentUser={currentUser}
             onEnterEmergency={onEnterEmergency}
             onLogout={onLogout}
           />
@@ -39,13 +40,14 @@ export default function DisguiseTabs({ onEnterEmergency, onLogout }) {
 
       <Tab.Screen
         name="Meus Ciclos"
-        component={HistoryStack}
         options={{
           tabBarIcon: ({ focused, color }) => (
             <Ionicons name={focused ? "stats-chart" : "stats-chart-outline"} size={22} color={color} />
           ),
         }}
-      />
+      >
+        {(props) => <HistoryStack {...props} currentUser={currentUser} />}
+      </Tab.Screen>
     </Tab.Navigator>
   );
 }

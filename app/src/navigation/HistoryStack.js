@@ -4,7 +4,7 @@ import NewCycleScreen from "../screens/cycle/NewCycleScreen";
 
 const Stack = createNativeStackNavigator();
 
-export default function HistoryStack() {
+export default function HistoryStack({ currentUser }) {
   return (
     <Stack.Navigator
       screenOptions={{
@@ -13,16 +13,12 @@ export default function HistoryStack() {
         headerTitleStyle: { fontWeight: "bold" },
       }}
     >
-      <Stack.Screen
-        name="CycleHistoryList"
-        component={CycleHistoryScreen}
-        options={{ title: "Histórico de Ciclos" }}
-      />
-      <Stack.Screen
-        name="NewCycle"
-        component={NewCycleScreen}
-        options={{ title: "Registrar Ciclo" }}
-      />
+      <Stack.Screen name="CycleHistoryList" options={{ title: "Histórico de Ciclos" }}>
+        {(props) => <CycleHistoryScreen {...props} currentUser={currentUser} />}
+      </Stack.Screen>
+      <Stack.Screen name="NewCycle" options={{ title: "Registrar Ciclo" }}>
+        {(props) => <NewCycleScreen {...props} currentUser={currentUser} />}
+      </Stack.Screen>
     </Stack.Navigator>
   );
 }

@@ -3,23 +3,37 @@ import { StatusBar } from "expo-status-bar";
 import { SafeAreaProvider } from "react-native-safe-area-context";
 import { NavigationContainer } from "@react-navigation/native";
 import RootNavigation from "./src/navigation/RootNavigation";
+import { clearAuthToken } from "./src/services/api";
 
 export default function App() {
-  const [authenticated, setAuthenticated] = useState(false);
+  const [currentUser, setCurrentUser] = useState(null);
   const [emergencyMode, setEmergencyMode] = useState(false);
 
+  function handleLogin(authenticatedUser) {
+    setCurrentUser(
+      authenticatedUser || {
+        id: 1,
+        name: "Selena",
+        email: "selena@gmail.com",
+        pin: "1800",
+      }
+    );
+  }
+
   function handleLogout() {
+    clearAuthToken();
     setEmergencyMode(false);
-    setAuthenticated(false);
+    setCurrentUser(null);
   }
 
   return (
     <SafeAreaProvider>
       <NavigationContainer>
         <RootNavigation
-          authenticated={authenticated}
+          authenticated={Boolean(currentUser)}
+          currentUser={currentUser}
           emergencyMode={emergencyMode}
-          onLogin={() => setAuthenticated(true)}
+          onLogin={handleLogin}
           onLogout={handleLogout}
           onEnterEmergency={() => setEmergencyMode(true)}
           onExitEmergency={() => setEmergencyMode(false)}
