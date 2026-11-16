@@ -5,13 +5,7 @@
     "startDate": "20/10/2026",
     "endDate": null,
     "flow": "Moderado",
-    "mood": "Sensível",
-    "vinculoAutor": "Parceiro atual",
-    "tipoViolencia": "Física",
-    "localOcorrencia": "Residência",
-    "diasAteNotificacao": 38,
-    "probabilidadeRisco": 0.85,
-    "riscoRepeticao": "Alto"
+    "mood": "Sensível"
   },
   {
     "id": 2,
@@ -19,13 +13,7 @@
     "startDate": "22/09/2026",
     "endDate": "27/09/2026",
     "flow": "Intenso",
-    "mood": "Com cólica",
-    "vinculoAutor": "Ex-parceiro",
-    "tipoViolencia": "Psicológica",
-    "localOcorrencia": "Residência",
-    "diasAteNotificacao": 15,
-    "probabilidadeRisco": 0.49,
-    "riscoRepeticao": "Médio"
+    "mood": "Com cólica"
   },
   {
     "id": 3,
@@ -33,13 +21,7 @@
     "startDate": "25/08/2026",
     "endDate": "29/08/2026",
     "flow": "Moderado",
-    "mood": "Sensível",
-    "vinculoAutor": "Conhecido",
-    "tipoViolencia": "Moral",
-    "localOcorrencia": "Ambiente virtual",
-    "diasAteNotificacao": 3,
-    "probabilidadeRisco": 0.1,
-    "riscoRepeticao": "Baixo"
+    "mood": "Sensível"
   },
   {
     "id": 4,
@@ -47,13 +29,7 @@
     "startDate": "28/07/2026",
     "endDate": "01/08/2026",
     "flow": "Leve",
-    "mood": "Bem",
-    "vinculoAutor": "Conhecido",
-    "tipoViolencia": "Moral",
-    "localOcorrencia": "Ambiente virtual",
-    "diasAteNotificacao": 3,
-    "probabilidadeRisco": 0.1,
-    "riscoRepeticao": "Baixo"
+    "mood": "Bem"
   },
   {
     "id": 5,
@@ -61,13 +37,7 @@
     "startDate": "30/06/2026",
     "endDate": "04/07/2026",
     "flow": "Moderado",
-    "mood": "Cansada",
-    "vinculoAutor": "Ex-parceiro",
-    "tipoViolencia": "Psicológica",
-    "localOcorrencia": "Residência",
-    "diasAteNotificacao": 15,
-    "probabilidadeRisco": 0.49,
-    "riscoRepeticao": "Médio"
+    "mood": "Cansada"
   },
   {
     "id": 6,
@@ -75,12 +45,6 @@
     "startDate": "02/06/2026",
     "endDate": "06/06/2026",
     "flow": "Leve",
-    "mood": "Sensível",
-    "vinculoAutor": "Conhecido",
-    "tipoViolencia": "Moral",
-    "localOcorrencia": "Ambiente virtual",
-    "diasAteNotificacao": 3,
-    "probabilidadeRisco": 0.1,
-    "riscoRepeticao": "Baixo"
+    "mood": "Sensível"
   }
 ]

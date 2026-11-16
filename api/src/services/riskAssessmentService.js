@@ -5,6 +5,15 @@ import { contactRepository } from "../repositories/contactRepository.js";
 export const ACADEMIC_DISCLAIMER =
   "Estimativa estatística acadêmica (modelo Regressão Logística sobre base sintética inspirada no Ligue 180/ONDH). Não substitui avaliação profissional, policial ou jurídica. Em emergência, ligue 190 ou 180.";
 
+let currentIndicatorState = {
+  vinculoAutor: "Parceiro atual",
+  tipoViolencia: "Física",
+  localOcorrencia: "Residência",
+  diasAteNotificacao: 38,
+  probabilidadeRisco: 0.85,
+  riscoRepeticao: "Alto",
+};
+
 export const riskAssessmentService = {
   calculateRepetitionRisk(input = {}) {
     const vinculo = input.vinculoAutor || "Conhecido";
@@ -53,12 +62,7 @@ export const riskAssessmentService = {
 
   evaluateAndPersist(payload = {}) {
     const assessment = this.calculateRepetitionRisk(payload);
-    if (payload.cycleId !== undefined && payload.cycleId !== null) {
-      const existing = cycleRepository.findById(payload.cycleId);
-      if (existing) {
-        cycleRepository.update(existing.id, assessment);
-      }
-    }
+    currentIndicatorState = { ...assessment };
 
     return {
       ...assessment,
@@ -78,36 +82,14 @@ export const riskAssessmentService = {
         ? contactRepository.findByUserId(userId)
         : contactRepository.findAll();
 
-    const latestCycle = cycles[0] || null;
     const openCycle = cycles.find((cycle) => !cycle.endDate) || null;
-
-    const distribuicaoRisco = {
-      Baixo: cycles.filter((c) => c.riscoRepeticao === "Baixo").length,
-      Médio: cycles.filter((c) => c.riscoRepeticao === "Médio").length,
-      Alto: cycles.filter((c) => c.riscoRepeticao === "Alto").length,
-    };
 
     return {
       totalUsuarios: users.length,
       totalCiclos: cycles.length,
       totalContatos: contacts.length,
       possuiCicloAberto: Boolean(openCycle),
-      indicadorRecente: latestCycle
-        ? {
-            cycleId: latestCycle.id,
-            startDate: latestCycle.startDate,
-            riscoRepeticao: latestCycle.riscoRepeticao || "Baixo",
-            probabilidadeRisco: latestCycle.probabilidadeRisco ?? 0.1,
-            vinculoAutor: latestCycle.vinculoAutor || "Conhecido",
-            tipoViolencia: latestCycle.tipoViolencia || "Moral",
-            localOcorrencia: latestCycle.localOcorrencia || "Ambiente virtual",
-            diasAteNotificacao: latestCycle.diasAteNotificacao ?? 3,
-          }
-        : {
-            riscoRepeticao: "Baixo",
-            probabilidadeRisco: 0.1,
-          },
-      distribuicaoRisco,
+      indicadorRecente: currentIndicatorState,
       canaisOficiais: [
         {
           id: "180",

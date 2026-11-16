@@ -7,17 +7,10 @@ import {
   remover,
   summarizeCycles,
   calculatePeriodDays,
-  AVISO_ACADEMICO,
 } from "../../services/api";
 
 const PAGE_SIZE = 3;
 const SEQUENCIA_FLUXO = ["Leve", "Moderado", "Intenso"];
-
-const COR_RISCO = {
-  Baixo: "#1F8A5C",
-  Médio: "#C9A227",
-  Alto: "#C0392B",
-};
 
 export default function CycleHistoryScreen({ navigation, currentUser }) {
   const userId = currentUser?.id || 1;
@@ -121,8 +114,6 @@ export default function CycleHistoryScreen({ navigation, currentUser }) {
         renderItem={({ item }) => {
           const isCurrent = !item.endDate;
           const duration = calculatePeriodDays(item.startDate, item.endDate);
-          const risco = item.riscoRepeticao || "Baixo";
-          const corRisco = COR_RISCO[risco] || COR_RISCO.Baixo;
 
           return (
             <TouchableOpacity
@@ -145,19 +136,11 @@ export default function CycleHistoryScreen({ navigation, currentUser }) {
                 </View>
               </View>
 
-              <View style={styles.infoRow}>
-                <Text style={styles.infoText}>Fluxo: {item.flow}</Text>
-                <Text style={styles.infoText}>Humor: {item.mood}</Text>
-              </View>
-
-              <View style={styles.dsActionsRow}>
-                <View style={[styles.riskBadge, { backgroundColor: corRisco }]}>
-                  <Text style={styles.riskBadgeText}>
-                    Indicador DS: Risco {risco}
-                    {item.probabilidadeRisco !== undefined
-                      ? ` (${Math.round(Number(item.probabilidadeRisco) * 100)}%)`
-                      : ""}
-                  </Text>
+              <View style={styles.cardFooterRow}>
+                <View style={styles.infoRow}>
+                  <Text style={styles.infoText}>Fluxo: {item.flow}</Text>
+                  <Text style={styles.infoTextSeparator}>·</Text>
+                  <Text style={styles.infoText}>Humor: {item.mood}</Text>
                 </View>
 
                 <View style={styles.crudButtonsRow}>
@@ -183,57 +166,53 @@ export default function CycleHistoryScreen({ navigation, currentUser }) {
           );
         }}
         ListFooterComponent={
-          <View>
-            <View style={styles.paginationRow}>
-              <TouchableOpacity
-                style={[styles.pageButton, paginaSegura === 1 && styles.pageButtonDisabled]}
-                disabled={paginaSegura === 1}
-                onPress={() => setPage(paginaSegura - 1)}
-              >
-                <Ionicons
-                  name="chevron-back"
-                  size={16}
-                  color={paginaSegura === 1 ? "#C8A6B0" : "#EC5F7B"}
-                />
-                <Text
-                  style={[
-                    styles.pageButtonText,
-                    paginaSegura === 1 && styles.pageButtonTextDisabled,
-                  ]}
-                >
-                  Anterior
-                </Text>
-              </TouchableOpacity>
-
-              <Text style={styles.pageIndicator}>
-                Página {paginaSegura} de {totalPages}
-              </Text>
-
-              <TouchableOpacity
+          <View style={styles.paginationRow}>
+            <TouchableOpacity
+              style={[styles.pageButton, paginaSegura === 1 && styles.pageButtonDisabled]}
+              disabled={paginaSegura === 1}
+              onPress={() => setPage(paginaSegura - 1)}
+            >
+              <Ionicons
+                name="chevron-back"
+                size={16}
+                color={paginaSegura === 1 ? "#C8A6B0" : "#EC5F7B"}
+              />
+              <Text
                 style={[
-                  styles.pageButton,
-                  paginaSegura === totalPages && styles.pageButtonDisabled,
+                  styles.pageButtonText,
+                  paginaSegura === 1 && styles.pageButtonTextDisabled,
                 ]}
-                disabled={paginaSegura === totalPages}
-                onPress={() => setPage(paginaSegura + 1)}
               >
-                <Text
-                  style={[
-                    styles.pageButtonText,
-                    paginaSegura === totalPages && styles.pageButtonTextDisabled,
-                  ]}
-                >
-                  Próxima
-                </Text>
-                <Ionicons
-                  name="chevron-forward"
-                  size={16}
-                  color={paginaSegura === totalPages ? "#C8A6B0" : "#EC5F7B"}
-                />
-              </TouchableOpacity>
-            </View>
+                Anterior
+              </Text>
+            </TouchableOpacity>
 
-            <Text style={styles.disclaimerText}>* {AVISO_ACADEMICO}</Text>
+            <Text style={styles.pageIndicator}>
+              Página {paginaSegura} de {totalPages}
+            </Text>
+
+            <TouchableOpacity
+              style={[
+                styles.pageButton,
+                paginaSegura === totalPages && styles.pageButtonDisabled,
+              ]}
+              disabled={paginaSegura === totalPages}
+              onPress={() => setPage(paginaSegura + 1)}
+            >
+              <Text
+                style={[
+                  styles.pageButtonText,
+                  paginaSegura === totalPages && styles.pageButtonTextDisabled,
+                ]}
+              >
+                Próxima
+              </Text>
+              <Ionicons
+                name="chevron-forward"
+                size={16}
+                color={paginaSegura === totalPages ? "#C8A6B0" : "#EC5F7B"}
+              />
+            </TouchableOpacity>
           </View>
         }
       />
@@ -319,7 +298,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
-    marginBottom: 10,
+    marginBottom: 12,
   },
   dateRow: {
     flexDirection: "row",
@@ -350,32 +329,23 @@ const styles = StyleSheet.create({
   badgeTextActive: {
     color: "#FFFFFF",
   },
-  infoRow: {
+  cardFooterRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    marginBottom: 10,
+    alignItems: "center",
+  },
+  infoRow: {
+    flexDirection: "row",
+    alignItems: "center",
   },
   infoText: {
     fontSize: 13,
     color: "#8E5B6B",
   },
-  dsActionsRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    borderTopWidth: 1,
-    borderTopColor: "#FDF0F4",
-    paddingTop: 10,
-  },
-  riskBadge: {
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderRadius: 10,
-  },
-  riskBadgeText: {
-    color: "#FFFFFF",
-    fontSize: 11,
-    fontWeight: "bold",
+  infoTextSeparator: {
+    fontSize: 13,
+    color: "#C8A6B0",
+    marginHorizontal: 6,
   },
   crudButtonsRow: {
     flexDirection: "row",
@@ -440,14 +410,6 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: "600",
     color: "#8E5B6B",
-  },
-  disclaimerText: {
-    fontSize: 11,
-    color: "#8E5B6B",
-    fontStyle: "italic",
-    textAlign: "center",
-    marginTop: 14,
-    lineHeight: 16,
   },
   newButton: {
     position: "absolute",

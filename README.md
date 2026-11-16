@@ -71,9 +71,9 @@ A API em [`api/src/`](api/src/app.js) segue **Arquitetura em Camadas (*Routes �
 
 - **Autenticação (`/auth/login`, `/auth/register`, `/auth/reset-password`):** Senhas armazenadas com hash **Bcrypt** (`bcryptjs`), omissão do campo `password` em todas as respostas (`toPublicUser`) e emissão de token **JWT** (`jsonwebtoken`) validado pelo [`authMiddleware.js`](api/src/middlewares/authMiddleware.js) nas rotas protegidas.
 - **`/users` (`database/data/users.json`):** Gerencia o perfil da usuária (`GET`, `POST`, `PUT`, `DELETE`). Ao excluir uma usuária (`DELETE /users/:id` mediante confirmação do PIN no app), realiza *cascade delete* removendo seus ciclos e contatos vinculados.
-- **`/cycles` (`database/data/cycles.json`):** Gerencia os ciclos menstruais (`startDate`, `endDate`, `flow`, `mood`) e armazena o indicador do modelo de Data Science (`riscoRepeticao` e `probabilidadeRisco`). **Relacionamento real validado pela API:** rejeita com `400 Bad Request` qualquer `POST` ou `PUT` cujo `userId` não exista em `users.json`, além de impedir dois ciclos em aberto simultâneos e fechar automaticamente ciclos com mais de 7 dias.
+- **`/cycles` (`database/data/cycles.json`):** Gerencia os ciclos menstruais da fachada de disfarce (`startDate`, `endDate`, `flow`, `mood`). **Relacionamento real validado pela API:** rejeita com `400 Bad Request` qualquer `POST` ou `PUT` cujo `userId` não exista em `users.json`, além de impedir dois ciclos em aberto simultâneos e fechar automaticamente ciclos com mais de 7 dias.
 - **`/contacts` (`database/data/contacts.json`):** Gerencia os contatos de segurança da rede de apoio (`name`, `relationship`, `phone`, `priority`). **Relacionamento real validado pela API:** rejeita com `400 Bad Request` qualquer `POST` ou `PUT` cujo `userId` não exista em `users.json`.
-- **`/painel/:userId` e `/avaliacao-risco`:** Endpoints de monitoramento em tempo real (consumidos via `setInterval` a cada 15s com limpeza `clearInterval` em `EmergencyScreen.js`) e inferência dinâmica do indicador `riscoRepeticao` (`"Baixo"`, `"Médio"`, `"Alto"`).
+- **`/painel/:userId` e `/avaliacao-risco`:** Endpoints do módulo protegido de emergência (consumidos via `setInterval` a cada 15s com limpeza `clearInterval` em `EmergencyScreen.js`) que calculam e retornam o indicador `riscoRepeticao` (`"Baixo"`, `"Médio"`, `"Alto"`) do modelo de Data Science.
 
 ---
 
@@ -92,8 +92,8 @@ A API em [`api/src/`](api/src/app.js) segue **Arquitetura em Camadas (*Routes �
    - **Acurácia:** **`74,9%`** (superando em `23,9` pontos percentuais o baseline majoritário de `51,0%`)
    - **Precisão:** **`75,3%`** · **Recall (Sensibilidade):** **`75,7%`** · **F1-Score:** **`75,5%`** · **ROC-AUC:** **`0,805`**
    - **Matriz de Confusão:** `VP = 137`, `VN = 128`, `FP = 45`, `FN = 44`.
-5. **Integração com a API e o App Mobile:**
-   - Probabilidade convertida nas faixas `riscoRepeticao`: `"Baixo"` (`< 0,35`), `"Médio"` (`0,35 a 0,65`) e `"Alto"` (`≥ 0,65`), gravada em `api/src/database/data/cycles.json` (`0,10` → `"Baixo"`, `0,49` → `"Médio"`, `0,85` → `"Alto"`) e exibida com selo colorido e aviso acadêmico em `CycleHistoryScreen.js` e `EmergencyScreen.js`.
+5. **Integração com a API e o App Mobile (Preservando o Disfarce):**
+   - Para não comprometer o disfarce nas telas de ciclo menstrual, o indicador `riscoRepeticao` (`"Baixo"` `< 0,35`, `"Médio"` `0,35 a 0,65` e `"Alto"` `≥ 0,65`) é exibido **exclusivamente dentro da tela protegida por PIN (`EmergencyScreen.js`)**, integrado às rotas `/painel/:userId` e `/avaliacao-risco` (`0,10` → `"Baixo"`, `0,49` → `"Médio"`, `0,85` → `"Alto"`) com o aviso acadêmico obrigatório.
 
 ---
 

@@ -1,7 +1,6 @@
 import { AppError } from "../errors/AppError.js";
 import { userRepository } from "../repositories/userRepository.js";
 import { cycleRepository } from "../repositories/cycleRepository.js";
-import { riskAssessmentService } from "./riskAssessmentService.js";
 
 const MAX_OPEN_PERIOD_DAYS = 7;
 const DEFAULT_REFERENCE_DATE = "22/10/2026";
@@ -155,7 +154,6 @@ export const cycleService = {
 
   create(payload = {}) {
     this.validatePayload(payload, null);
-    const assessment = riskAssessmentService.calculateRepetitionRisk(payload);
     const flow = payload.flow || payload.flowLevel || "Moderado";
 
     return cycleRepository.create({
@@ -164,12 +162,6 @@ export const cycleService = {
       endDate: payload.endDate ? String(payload.endDate).trim() : null,
       flow,
       mood: payload.mood,
-      vinculoAutor: assessment.vinculoAutor,
-      tipoViolencia: assessment.tipoViolencia,
-      localOcorrencia: assessment.localOcorrencia,
-      diasAteNotificacao: assessment.diasAteNotificacao,
-      probabilidadeRisco: payload.probabilidadeRisco ?? assessment.probabilidadeRisco,
-      riscoRepeticao: payload.riscoRepeticao || assessment.riscoRepeticao,
     });
   },
 
@@ -183,17 +175,13 @@ export const cycleService = {
 
     this.validatePayload(merged, current.id);
 
-    if (
-      payload.vinculoAutor !== undefined ||
-      payload.tipoViolencia !== undefined ||
-      payload.localOcorrencia !== undefined ||
-      payload.diasAteNotificacao !== undefined
-    ) {
-      const assessment = riskAssessmentService.calculateRepetitionRisk(merged);
-      Object.assign(merged, assessment);
-    }
-
-    return cycleRepository.update(id, merged);
+    return cycleRepository.update(id, {
+      userId: Number(merged.userId) || merged.userId,
+      startDate: String(merged.startDate).trim(),
+      endDate: merged.endDate ? String(merged.endDate).trim() : null,
+      flow: merged.flow,
+      mood: merged.mood,
+    });
   },
 
   remove(id) {
