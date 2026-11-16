@@ -485,7 +485,7 @@ export default function CycleHomeScreen({
                   setAccountError("");
                   setDeletePinInput(text.replace(/\D/g, "").slice(0, 4));
                 }}
-                placeholder="PIN (4 dígitos)"
+                placeholder="••••"
                 placeholderTextColor="#B08A95"
                 keyboardType="number-pad"
                 maxLength={4}
@@ -1014,10 +1014,10 @@ const styles = StyleSheet.create({
   pinInputSmall: {
     width: "100%",
     backgroundColor: "#FFFFFF",
-    borderRadius: 12,
-    paddingVertical: 10,
-    fontSize: 16,
-    letterSpacing: 6,
+    borderRadius: 14,
+    paddingVertical: 12,
+    fontSize: 22,
+    letterSpacing: 10,
     textAlign: "center",
     color: "#4A1D2C",
     borderWidth: 1,
