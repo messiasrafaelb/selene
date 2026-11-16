@@ -29,29 +29,45 @@ const COR_RISCO = {
   Alto: "#C0392B",
 };
 
-const PERFIS_SIMULACAO = [
+const CENARIOS_AVALIACAO = [
   {
-    rotulo: "Baixo (10%)",
+    id: "baixo",
+    tituloBotao: "Conhecido / Virtual",
+    subtituloBotao: "Ofensa recente fora de casa",
     vinculoAutor: "Conhecido",
     tipoViolencia: "Moral",
     localOcorrencia: "Ambiente virtual",
     diasAteNotificacao: 3,
   },
   {
-    rotulo: "Médio (49%)",
+    id: "medio",
+    tituloBotao: "Ex-parceiro / Ameaça",
+    subtituloBotao: "Perseguição ou pressão psicológica",
     vinculoAutor: "Ex-parceiro",
     tipoViolencia: "Psicológica",
     localOcorrencia: "Residência",
     diasAteNotificacao: 15,
   },
   {
-    rotulo: "Alto (85%)",
+    id: "alto",
+    tituloBotao: "Parceiro / Em casa",
+    subtituloBotao: "Agressão no convívio doméstico",
     vinculoAutor: "Parceiro atual",
     tipoViolencia: "Física",
     localOcorrencia: "Residência",
     diasAteNotificacao: 38,
   },
 ];
+
+function obterOrientacaoRisco(risco, percentual) {
+  if (risco === "Alto") {
+    return `Alerta: nos dados do Ligue 180, quando a agressão parte do parceiro dentro de casa e demora a ser denunciada, em ${percentual}% dos casos ela volta a acontecer. Não espere uma nova agressão: ligue 180 ou acione um contato abaixo.`;
+  }
+  if (risco === "Médio") {
+    return `Atenção: em situações envolvendo ex-parceiro e violência psicológica residencial, cerca de ${percentual}% dos casos se repetem. Converse com sua rede de apoio e busque orientação gratuita no Ligue 180.`;
+  }
+  return `Nos registros do Ligue 180, ocorrências pontuais fora do ambiente doméstico têm menor taxa de reincidência (${percentual}%). Ainda assim, guarde registros do ocorrido e procure o 180 se precisar de orientação.`;
+}
 
 export default function EmergencyScreen({
   navigation,
@@ -122,11 +138,13 @@ export default function EmergencyScreen({
     }
   }
 
-  async function handleSimularRisco(perfil) {
+  async function handleSelecionarCenario(cenario) {
     try {
       await avaliarRiscoApi({
-        cycleId: painel?.indicadorRecente?.cycleId || 1,
-        ...perfil,
+        vinculoAutor: cenario.vinculoAutor,
+        tipoViolencia: cenario.tipoViolencia,
+        localOcorrencia: cenario.localOcorrencia,
+        diasAteNotificacao: cenario.diasAteNotificacao,
       });
       await carregarRede();
     } catch (erro) {
@@ -142,7 +160,9 @@ export default function EmergencyScreen({
     localOcorrencia: "Residência",
     diasAteNotificacao: 38,
   };
+  const percentual = Math.round(Number(indicador.probabilidadeRisco || 0) * 100);
   const corIndicador = COR_RISCO[indicador.riscoRepeticao] || COR_RISCO.Baixo;
+  const orientacaoTexto = obterOrientacaoRisco(indicador.riscoRepeticao, percentual);
 
   return (
     <View style={styles.container}>
@@ -177,42 +197,74 @@ export default function EmergencyScreen({
             )}
 
             <View style={styles.dsCard}>
-              <View style={styles.dsHeaderRow}>
-                <View style={styles.dsTitleRow}>
-                  <Ionicons name="analytics" size={18} color="#EC5F7B" />
-                  <Text style={styles.dsTitle}>
-                    Indicador de Risco de Repetição (Data Science)
-                  </Text>
-                </View>
-                <View style={[styles.dsBadge, { backgroundColor: corIndicador }]}>
-                  <Text style={styles.dsBadgeText}>
-                    Risco {indicador.riscoRepeticao} (
-                    {Math.round(Number(indicador.probabilidadeRisco || 0) * 100)}%)
-                  </Text>
-                </View>
+              <View style={styles.dsTitleRow}>
+                <Ionicons name="shield-half" size={20} color="#EC5F7B" />
+                <Text style={styles.dsTitle}>
+                  Chance de a Agressão Acontecer de Novo
+                </Text>
               </View>
 
-              <Text style={styles.dsContextText}>
-                Perfil avaliado: {indicador.vinculoAutor} · {indicador.tipoViolencia} ·{" "}
-                {indicador.localOcorrencia} ({indicador.diasAteNotificacao} dias até notificação)
+              <Text style={styles.dsHelperText}>
+                Muitas mulheres deixam de pedir ajuda achando que foi um caso isolado. Toque na situação mais próxima da sua para ver o que mostram os dados do Ligue 180:
               </Text>
 
-              <View style={styles.dsSimRow}>
-                {PERFIS_SIMULACAO.map((perfil) => (
-                  <TouchableOpacity
-                    key={perfil.rotulo}
-                    style={styles.dsSimChip}
-                    onPress={() => handleSimularRisco(perfil)}
-                    activeOpacity={0.8}
-                  >
-                    <Text style={styles.dsSimChipText}>{perfil.rotulo}</Text>
-                  </TouchableOpacity>
-                ))}
+              <View style={styles.dsScenariosColumn}>
+                {CENARIOS_AVALIACAO.map((cenario) => {
+                  const selecionado =
+                    indicador.vinculoAutor === cenario.vinculoAutor &&
+                    indicador.tipoViolencia === cenario.tipoViolencia;
+                  return (
+                    <TouchableOpacity
+                      key={cenario.id}
+                      style={[
+                        styles.dsScenarioButton,
+                        selecionado && styles.dsScenarioButtonActive,
+                      ]}
+                      onPress={() => handleSelecionarCenario(cenario)}
+                      activeOpacity={0.8}
+                    >
+                      <View style={styles.dsScenarioTextCol}>
+                        <Text
+                          style={[
+                            styles.dsScenarioTitle,
+                            selecionado && styles.dsScenarioTitleActive,
+                          ]}
+                        >
+                          {cenario.tituloBotao}
+                        </Text>
+                        <Text
+                          style={[
+                            styles.dsScenarioSub,
+                            selecionado && styles.dsScenarioSubActive,
+                          ]}
+                        >
+                          {cenario.subtituloBotao}
+                        </Text>
+                      </View>
+                      <Ionicons
+                        name={selecionado ? "radio-button-on" : "radio-button-off"}
+                        size={18}
+                        color={selecionado ? "#FFFFFF" : "#EC5F7B"}
+                      />
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+
+              <View style={[styles.dsResultBox, { borderColor: corIndicador }]}>
+                <View style={styles.dsResultHeader}>
+                  <Text style={styles.dsResultLabel}>Estimativa estatística:</Text>
+                  <View style={[styles.dsBadge, { backgroundColor: corIndicador }]}>
+                    <Text style={styles.dsBadgeText}>
+                      Risco {indicador.riscoRepeticao} ({percentual}% de reincidência)
+                    </Text>
+                  </View>
+                </View>
+                <Text style={styles.dsGuidanceText}>{orientacaoTexto}</Text>
               </View>
 
               <Text style={styles.dsDisclaimer}>
                 * {painel?.avisoAcademico || AVISO_ACADEMICO}
-                {painel?.atualizadoEm ? ` · Atualizado às ${painel.atualizadoEm}` : ""}
               </Text>
             </View>
 
@@ -383,59 +435,95 @@ const styles = StyleSheet.create({
     borderWidth: 1.5,
     borderColor: "#F48FB1",
   },
-  dsHeaderRow: {
+  dsTitleRow: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginBottom: 6,
+  },
+  dsTitle: {
+    fontSize: 15,
+    fontWeight: "bold",
+    color: "#4A1D2C",
+    marginLeft: 8,
+  },
+  dsHelperText: {
+    fontSize: 12,
+    color: "#6E4250",
+    lineHeight: 17,
+    marginBottom: 12,
+  },
+  dsScenariosColumn: {
+    marginBottom: 12,
+  },
+  dsScenarioButton: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    backgroundColor: "#FFF5F7",
+    borderWidth: 1,
+    borderColor: "#F48FB1",
+    borderRadius: 14,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    marginBottom: 8,
+  },
+  dsScenarioButtonActive: {
+    backgroundColor: "#EC5F7B",
+    borderColor: "#EC5F7B",
+  },
+  dsScenarioTextCol: {
+    flex: 1,
+    marginRight: 10,
+  },
+  dsScenarioTitle: {
+    fontSize: 13,
+    fontWeight: "bold",
+    color: "#4A1D2C",
+  },
+  dsScenarioTitleActive: {
+    color: "#FFFFFF",
+  },
+  dsScenarioSub: {
+    fontSize: 11,
+    color: "#8E5B6B",
+    marginTop: 2,
+  },
+  dsScenarioSubActive: {
+    color: "#FFEBF0",
+  },
+  dsResultBox: {
+    backgroundColor: "#FFF9FB",
+    borderRadius: 14,
+    padding: 12,
+    borderWidth: 1.5,
+    marginBottom: 10,
+  },
+  dsResultHeader: {
     flexDirection: "row",
     justifyContent: "space-between",
     alignItems: "center",
     flexWrap: "wrap",
-    marginBottom: 8,
+    marginBottom: 6,
   },
-  dsTitleRow: {
-    flexDirection: "row",
-    alignItems: "center",
-    flex: 1,
-    marginRight: 8,
-  },
-  dsTitle: {
-    fontSize: 13,
+  dsResultLabel: {
+    fontSize: 12,
     fontWeight: "bold",
     color: "#4A1D2C",
-    marginLeft: 6,
   },
   dsBadge: {
     paddingHorizontal: 10,
-    paddingVertical: 5,
-    borderRadius: 12,
+    paddingVertical: 4,
+    borderRadius: 10,
   },
   dsBadgeText: {
     color: "#FFFFFF",
     fontSize: 11,
     fontWeight: "bold",
   },
-  dsContextText: {
+  dsGuidanceText: {
     fontSize: 12,
     color: "#4A1D2C",
-    marginBottom: 10,
-  },
-  dsSimRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    marginBottom: 10,
-  },
-  dsSimChip: {
-    flex: 1,
-    backgroundColor: "#FFF0F4",
-    borderWidth: 1,
-    borderColor: "#F48FB1",
-    borderRadius: 12,
-    paddingVertical: 6,
-    marginHorizontal: 3,
-    alignItems: "center",
-  },
-  dsSimChipText: {
-    fontSize: 11,
-    fontWeight: "bold",
-    color: "#EC5F7B",
+    lineHeight: 18,
   },
   dsDisclaimer: {
     fontSize: 10,
