@@ -55,6 +55,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
     paddingVertical: 6,
     borderRadius: 14,
+    marginRight: 16,
   },
   headerQuickExitText: {
     color: "#EC5F7B",

@@ -200,7 +200,7 @@ export default function EmergencyScreen({
               <View style={styles.dsTitleRow}>
                 <Ionicons name="shield-half" size={20} color="#EC5F7B" />
                 <Text style={styles.dsTitle}>
-                  Chance de a Agressão Acontecer de Novo
+                  Chance de uma Agressão Acontecer de Novo
                 </Text>
               </View>
 
