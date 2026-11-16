@@ -1,0 +1,26 @@
+[
+  {
+    "id": 1,
+    "userId": 1,
+    "name": "Mariana (Irmã)",
+    "relationship": "Irmã",
+    "phone": "(43) 99912-3456",
+    "priority": "Principal"
+  },
+  {
+    "id": 2,
+    "userId": 1,
+    "name": "Mãe",
+    "relationship": "Mãe",
+    "phone": "(43) 99876-5432",
+    "priority": "Apoio rápido"
+  },
+  {
+    "id": 3,
+    "userId": 1,
+    "name": "Camila (Rede de Apoio)",
+    "relationship": "Amiga / Rede de Apoio",
+    "phone": "(43) 99711-2233",
+    "priority": "Orientação"
+  }
+]
