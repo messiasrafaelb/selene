@@ -1,9 +1,3 @@
-HELP.md
-**/target/
-**/.mvn/wrapper/maven-wrapper.jar
-!**/src/main/**/target/
-!**/src/test/**/target/
-
 ### Node / Expo / React Native ###
 **/node_modules/
 **/.expo/
@@ -18,6 +12,7 @@ npm-debug.*
 *.key
 *.mobileprovision
 *.orig.*
+*.log
 
 ### Python / Data Science ###
 __pycache__/
@@ -26,30 +21,9 @@ __pycache__/
 .venv/
 venv/
 
-### STS / Eclipse ###
-.apt_generated
-.classpath
-.factorypath
-.project
-.settings
-.springBeans
-.sts4-cache
-
-### IntelliJ IDEA ###
-.idea
-*.iws
+### IDEs / Editors ###
+.idea/
 *.iml
-*.ipr
-
-### NetBeans ###
-/nbproject/private/
-/nbbuild/
-/dist/
-/nbdist/
-/.nb-gradle/
-**/build/
-!**/src/main/**/target/
-!**/src/test/**/target/
-
-### VS Code ###
 .vscode/
+.DS_Store
+Thumbs.db
