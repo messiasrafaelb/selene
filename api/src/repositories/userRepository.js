@@ -1,63 +1,54 @@
-import {
-  readCollection,
-  writeCollection,
-  generateNextId,
-} from "../database/jsonDatabase.js";
-
-const COLLECTION = "users";
+import { db } from "../database/sqliteDatabase.js";
 
 export const userRepository = {
   findAll() {
-    return readCollection(COLLECTION);
+    return db.prepare("SELECT id, name, email, password, pin FROM users ORDER BY id ASC").all();
   },
 
   findById(id) {
-    const users = readCollection(COLLECTION);
-    return users.find((user) => String(user.id) === String(id)) || null;
+    return (
+      db
+        .prepare("SELECT id, name, email, password, pin FROM users WHERE id = ?")
+        .get(Number(id)) || null
+    );
   },
 
   findByEmail(email) {
     const normalized = String(email || "").trim().toLowerCase();
-    const users = readCollection(COLLECTION);
     return (
-      users.find((user) => String(user.email || "").trim().toLowerCase() === normalized) ||
-      null
+      db
+        .prepare("SELECT id, name, email, password, pin FROM users WHERE LOWER(email) = ?")
+        .get(normalized) || null
     );
   },
 
   create(userData) {
-    const users = readCollection(COLLECTION);
-    const newUser = {
-      id: generateNextId(users),
-      ...userData,
-    };
-    users.push(newUser);
-    writeCollection(COLLECTION, users);
-    return newUser;
+    const result = db
+      .prepare("INSERT INTO users (name, email, password, pin) VALUES (?, ?, ?, ?)")
+      .run(userData.name, userData.email, userData.password, userData.pin);
+    return this.findById(result.lastInsertRowid);
   },
 
   update(id, userData) {
-    const users = readCollection(COLLECTION);
-    const index = users.findIndex((user) => String(user.id) === String(id));
-    if (index === -1) return null;
+    const current = this.findById(id);
+    if (!current) return null;
 
-    const updatedUser = {
-      ...users[index],
+    const updated = {
+      ...current,
       ...userData,
-      id: users[index].id,
     };
-    users[index] = updatedUser;
-    writeCollection(COLLECTION, users);
-    return updatedUser;
+
+    db.prepare(
+      "UPDATE users SET name = ?, email = ?, password = ?, pin = ? WHERE id = ?"
+    ).run(updated.name, updated.email, updated.password, updated.pin, Number(id));
+
+    return this.findById(id);
   },
 
   remove(id) {
-    const users = readCollection(COLLECTION);
-    const index = users.findIndex((user) => String(user.id) === String(id));
-    if (index === -1) return null;
-
-    const [removed] = users.splice(index, 1);
-    writeCollection(COLLECTION, users);
-    return removed;
+    const current = this.findById(id);
+    if (!current) return null;
+    db.prepare("DELETE FROM users WHERE id = ?").run(Number(id));
+    return current;
   },
 };

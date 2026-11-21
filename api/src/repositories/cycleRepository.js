@@ -1,64 +1,82 @@
-import {
-  readCollection,
-  writeCollection,
-  generateNextId,
-} from "../database/jsonDatabase.js";
-
-const COLLECTION = "cycles";
+import { db } from "../database/sqliteDatabase.js";
 
 export const cycleRepository = {
   findAll() {
-    return readCollection(COLLECTION);
+    return db
+      .prepare(
+        "SELECT id, userId, startDate, endDate, flow, mood FROM cycles ORDER BY substr(startDate, 7, 4) || '-' || substr(startDate, 4, 2) || '-' || substr(startDate, 1, 2) DESC, id DESC"
+      )
+      .all();
   },
 
   findByUserId(userId) {
-    const cycles = readCollection(COLLECTION);
-    return cycles.filter((cycle) => String(cycle.userId) === String(userId));
+    return db
+      .prepare(
+        "SELECT id, userId, startDate, endDate, flow, mood FROM cycles WHERE userId = ? ORDER BY substr(startDate, 7, 4) || '-' || substr(startDate, 4, 2) || '-' || substr(startDate, 1, 2) DESC, id DESC"
+      )
+      .all(Number(userId));
   },
 
   findById(id) {
-    const cycles = readCollection(COLLECTION);
-    return cycles.find((cycle) => String(cycle.id) === String(id)) || null;
+    return (
+      db
+        .prepare("SELECT id, userId, startDate, endDate, flow, mood FROM cycles WHERE id = ?")
+        .get(Number(id)) || null
+    );
   },
 
   saveAll(cycles) {
-    writeCollection(COLLECTION, cycles);
-    return cycles;
+    const stmt = db.prepare(
+      "UPDATE cycles SET startDate = ?, endDate = ?, flow = ?, mood = ? WHERE id = ?"
+    );
+    cycles.forEach((c) => {
+      stmt.run(c.startDate, c.endDate ?? null, c.flow, c.mood, Number(c.id));
+    });
+    return this.findAll();
   },
 
   create(cycleData) {
-    const cycles = readCollection(COLLECTION);
-    const newCycle = {
-      id: generateNextId(cycles),
-      ...cycleData,
-    };
-    cycles.unshift(newCycle);
-    writeCollection(COLLECTION, cycles);
-    return newCycle;
+    const result = db
+      .prepare(
+        "INSERT INTO cycles (userId, startDate, endDate, flow, mood) VALUES (?, ?, ?, ?, ?)"
+      )
+      .run(
+        Number(cycleData.userId),
+        cycleData.startDate,
+        cycleData.endDate ?? null,
+        cycleData.flow,
+        cycleData.mood
+      );
+    return this.findById(result.lastInsertRowid);
   },
 
   update(id, cycleData) {
-    const cycles = readCollection(COLLECTION);
-    const index = cycles.findIndex((cycle) => String(cycle.id) === String(id));
-    if (index === -1) return null;
+    const current = this.findById(id);
+    if (!current) return null;
 
-    const updatedCycle = {
-      ...cycles[index],
+    const updated = {
+      ...current,
       ...cycleData,
-      id: cycles[index].id,
     };
-    cycles[index] = updatedCycle;
-    writeCollection(COLLECTION, cycles);
-    return updatedCycle;
+
+    db.prepare(
+      "UPDATE cycles SET userId = ?, startDate = ?, endDate = ?, flow = ?, mood = ? WHERE id = ?"
+    ).run(
+      Number(updated.userId),
+      updated.startDate,
+      updated.endDate ?? null,
+      updated.flow,
+      updated.mood,
+      Number(id)
+    );
+
+    return this.findById(id);
   },
 
   remove(id) {
-    const cycles = readCollection(COLLECTION);
-    const index = cycles.findIndex((cycle) => String(cycle.id) === String(id));
-    if (index === -1) return null;
-
-    const [removed] = cycles.splice(index, 1);
-    writeCollection(COLLECTION, cycles);
-    return removed;
+    const current = this.findById(id);
+    if (!current) return null;
+    db.prepare("DELETE FROM cycles WHERE id = ?").run(Number(id));
+    return current;
   },
 };

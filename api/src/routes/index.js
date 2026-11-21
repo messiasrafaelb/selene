@@ -6,6 +6,10 @@ import { contactRoutes } from "./contactRoutes.js";
 import { riskAssessmentRoutes } from "./riskAssessmentRoutes.js";
 import { authMiddleware } from "../middlewares/authMiddleware.js";
 import { ACADEMIC_DISCLAIMER } from "../services/riskAssessmentService.js";
+import { userRepository } from "../repositories/userRepository.js";
+import { cycleRepository } from "../repositories/cycleRepository.js";
+import { contactRepository } from "../repositories/contactRepository.js";
+import { toPublicUser } from "../services/userService.js";
 
 export const routes = Router();
 
@@ -13,11 +17,23 @@ routes.get("/", (req, res) => {
   return res.status(200).json({
     servico: "API do Projeto Selene — Monitoramento do Ciclo e Apoio Camuflado",
     status: "online",
-    arquitetura: "Layered Architecture (Routes -> Controllers -> Services -> Repositories)",
+    bancoDeDados: "SQLite Relacional (node:sqlite -> selene.sqlite)",
+    arquitetura: "Layered Architecture (Routes -> Controllers -> Services -> Repositories -> SQLite)",
     seguranca: "JWT (Bearer Token) + Bcrypt Password Hashing",
-    rotasPublicas: ["GET /", "POST /auth/login", "POST /auth/register", "POST /auth/reset-password"],
+    rotasPublicas: ["GET /", "GET /database", "POST /auth/login", "POST /auth/register", "POST /auth/reset-password"],
     rotasProtegidas: ["/users", "/cycles", "/contacts", "/painel", "/avaliacao-risco"],
     avisoAcademico: ACADEMIC_DISCLAIMER,
+  });
+});
+
+routes.get("/database", (req, res) => {
+  return res.status(200).json({
+    engine: "SQLite 3 (api/src/database/data/selene.sqlite)",
+    tabelas: {
+      users: userRepository.findAll().map(toPublicUser),
+      cycles: cycleRepository.findAll(),
+      contacts: contactRepository.findAll(),
+    },
   });
 });
 
